@@ -5,10 +5,18 @@
 #include <conf.h>
 
 typedef enum sk_type     {SK_FF, SK_RC, SK_LSTM, SK_ATT} LayerType;
-typedef enum sk_logistic {SK_SIGMOID, SK_TANH, SK_RELU, SK_SOFTMAX} Logistic;
+typedef enum sk_logistic {SK_SIGMOID, SK_TANH, SK_RELU, SK_LINEAR, SK_SOFTMAX} Logistic;
+
+typedef struct tensor_{
+  size_t n;
+  size_t *dims;
+  void   *data;
+} Tensor;
+
 
 typedef struct layer_{ 
   char  *name;
+  char **input_names;
 
   struct layer_ **input_layers;
   size_t num_input_layers;
@@ -52,10 +60,11 @@ void  sk_forward(Network *, float *);
 float sk_cost(float *, float *, float *, size_t);
 void  sk_backward(Network *);
 
-#define sk_err(x) \
+#define SK_ERROR(x) \
   do {                                                             \
     printf("ERROR: in file %s:%d, '%s'\n", __FILE__, __LINE__, x); \
     exit(1);                                                       \
-  } while(0);
+  } while(0)
 
+#define STATIC_LEN(arr) (sizeof(arr) / sizeof(arr[0]))
 #endif
