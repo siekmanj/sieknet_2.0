@@ -2,20 +2,23 @@
 #define SIEKNET_LAYER_H
 
 #include <stdlib.h>
+#include <conf.h>
 
 typedef enum sk_type     {SK_FF, SK_RC, SK_LSTM, SK_ATT} LayerType;
 typedef enum sk_logistic {SK_SIGMOID, SK_TANH, SK_RELU, SK_SOFTMAX} Logistic;
 
+typedef struct layer_{ 
+  char  *name;
 
-typedef struct layer_{
   struct layer_ **input_layers;
   size_t num_input_layers;
   size_t size;
   size_t param_idx;
   size_t real_idx;
   size_t params_per_input;
+  size_t num_params;
+  size_t num_reals;
 
-  char  *name;
   void  *data;
   float *output;
 
@@ -25,6 +28,8 @@ typedef struct layer_{
 } Layer;
 
 typedef struct net_{
+  char *name;
+
   Layer *input_layer;
   Layer **layers;
   Layer *output_layer;

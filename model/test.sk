@@ -1,28 +1,30 @@
-nEtWoRk Test {
-  input_dimension: 4
-  output: c
+[network]
+name: Test
+input_dimension: 4
+input: a
+output: c
 
-  layer a {
-    logistic: sigmoid
-    input: network
-    type: feedforward
-    size: 16
-  
-  }
+[layer]
+name: a
+logistic: sigmoid
+type: feedforward
+size: 16
 
-  layer b {
-    input: a, b
-    logistic: sigmoid
-    type: recurrent
-    size: 16
+[layer]
+name: b
+input: a, b
+logistic: sigmoid
+type: recurrent
+size: 16
 
-  }
+[layer]
+name: c
+input: a, b
+logistic: softmax
+type: feedforward
+size: 4
 
-  layer c {
-    input: a, b
-    logistic: softmax
-    type: feedforward
-    size: 4
 
-  }
-}
+
+
+
