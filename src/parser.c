@@ -105,7 +105,6 @@ Network network_from_string(const char *object){
 }
 
 void parse_layer_attribute(Layer *l, char *identifier, char **remaining){
-  printf("  PARSING LAYER ATTR '%s'\n", identifier);
   char buff[BUFFSIZE];
   memset(buff, '\0', BUFFSIZE);
   int offset;
@@ -116,6 +115,9 @@ void parse_layer_attribute(Layer *l, char *identifier, char **remaining){
     if(!strcmp(identifier, "input")){
       while(1){
         if(get_token_type(buff) == VALUE){
+          char *name = calloc(strlen(buff), sizeof(char));
+          strcpy(name, buff);
+          l->input_names[l->num_input_layers++] = name;
 
           offset = 0;
           memset(buff, '\0', BUFFSIZE);
@@ -129,26 +131,30 @@ void parse_layer_attribute(Layer *l, char *identifier, char **remaining){
     }
     else if(!strcmp(identifier, "logistic")){
       int logistic_idx = contains(buff, sk_logistics, STATIC_LEN(sk_logistics)); 
-      if(logistic_idx != -1){
-
-      }else
+      if(logistic_idx != -1)
+        l->logistic = logistic_idx;
+      else
         SK_ERROR("invalid logistic function");
     }
     else if(!strcmp(identifier, "type")){
       int layertype_idx = contains(buff, sk_layertypes, STATIC_LEN(sk_layertypes));
       if(layertype_idx != -1){
-
+        l->layertype = layertype_idx;
       }else
         SK_ERROR("invalid layer type");
     }
     else if(!strcmp(identifier, "size")){
       int size;
       if(sscanf(buff, "%d%n", &size, &offset)){
-        printf("  got size '%d'\n", size);
+        l->size = size;
+      }else{
+        SK_ERROR("unable to parse layer size");
       }
     }
     else if(!strcmp(identifier, "name")){
-      printf("  got layername '%s'\n", buff);
+      char *name = calloc(strlen(buff), sizeof(char));
+      strcpy(name, buff);
+      l->name = name;
     }
     else
       SK_ERROR("unrecognized identifier");
@@ -157,7 +163,36 @@ void parse_layer_attribute(Layer *l, char *identifier, char **remaining){
 }
 
 void parse_network_attribute(Network *n, char *identifier, char **remaining){
+  char buff[BUFFSIZE];
+  memset(buff, '\0', BUFFSIZE);
+  int offset;
 
+  if(sscanf(*remaining, "%s%n", buff, &offset) != EOF){
+    *remaining = *remaining + offset;
+    if(!strcmp(identifier, "name")){
+      char *name = calloc(strlen(buff), sizeof(char));
+      strcpy(name, buff);
+      n->name = name;
+    }
+    else if(!strcmp(identifier, "inputdimension")){
+      int size;
+      if(sscanf(buff, "%d%n", &size, &offset)){
+        n->input_dimension = size;
+      }else{
+        SK_ERROR("unable to parse layer size");
+      }
+    }
+    else if(!strcmp(identifier, "input")){
+      char *name = calloc(strlen(buff), sizeof(char));
+      strcpy(name, buff);
+      n->input_layername= name;
+    }
+    else if(!strcmp(identifier, "output")){
+      char *name = calloc(strlen(buff), sizeof(char));
+      strcpy(name, buff);
+      n->output_layername= name;
+    }
+  }
 }
 
 Network create_network(const char *skfile){
@@ -185,7 +220,7 @@ Network create_network(const char *skfile){
     layers[i]->input_names = calloc(num_layers, sizeof(char*));
   }
 
-  size_t layeridx = 0;
+  int layeridx = -1;
   
   char buff[BUFFSIZE];
   memset(buff, '\0', BUFFSIZE);
@@ -209,8 +244,10 @@ Network create_network(const char *skfile){
       else
         seen_network_root = 1;
     }
-    else if(current_token == LAYER_ROOT)
+    else if(current_token == LAYER_ROOT){
       current_root = current_token;
+      layeridx++;
+    }
     
     else if(current_token == IDENTIFIER){
 
@@ -218,15 +255,33 @@ Network create_network(const char *skfile){
         parse_network_attribute(&n, buff, &tmp);
 
       else if(current_root == LAYER_ROOT)
-        parse_layer_attribute(layers[layeridx++], buff, &tmp);
+        parse_layer_attribute(layers[layeridx], buff, &tmp);
     }
+
     //else
     //  SK_ERROR("expected a network root marker, layer root marker, or identifier but got a value.");
 
     //printf("remaining:\n'%s'\n", tmp);
     //getchar();
     memset(buff, '\0', BUFFSIZE);
+  }
+  setbuf(stdout, NULL);
+  printf("NETWORK: '%s'\n", n.name);
+  printf("NETWORK INDIM: %lu\n", n.input_dimension);
+  printf("NETWORK INPUT LAYER: '%s'\n", n.input_layername);
+  printf("NETWORK OUTPUT LAYER: '%s'\n", n.output_layername);
 
+  for(int i = 0; i < num_layers; i++){
+    Layer *l = layers[i];
+    printf("LAYER: '%s'\n", l->name);
+    printf("INPUT LAYERS: ");
+    for(int j = 0; j < l->num_input_layers; j++){
+      printf("'%s' ", l->input_names[j]);
+    }
+    printf("\n");
+    printf("LOGISTIC: %d\n", l->logistic);
+    printf("LAYERTYPE: %d\n", l->layertype);
+      
   }
 
   free(src);

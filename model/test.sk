@@ -1,18 +1,18 @@
 [layer]
-name: a
+name: layer_a
 logistic: sigmoid
 type: feedforward
 size: 16
 
 [layer]
-name: b
+name: layer_b
 input: a, b
 logistic: sigmoid
 type: recurrent
 size: 16
 
 [layer]
-name: c
+name: layer_c
 input: a, b
 logistic: softmax
 type: feedforward

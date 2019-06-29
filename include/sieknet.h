@@ -38,6 +38,9 @@ typedef struct layer_{
 typedef struct net_{
   char *name;
 
+  char *input_layername;
+  char *output_layername;
+
   Layer *input_layer;
   Layer **layers;
   Layer *output_layer;
@@ -45,6 +48,7 @@ typedef struct net_{
   float *params;
   float *reals;
 
+  size_t input_dimension;
   size_t num_params;
   size_t num_reals;
   size_t depth;
