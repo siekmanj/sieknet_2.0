@@ -35,7 +35,7 @@ static int is_filler(char c){
     return 1;
   if(c > 57 && c < 65)
     return 1;
-  if(c > 90 && c  < 97)
+  if(c > 90 && c < 97 && c != 95)
     return 1;
   if(c > 123)
     return 1;
@@ -58,7 +58,7 @@ static int is_identifier(const char *token){
   return 0;
 }
 
-TokenType get_token_type(const char *token){
+static TokenType get_token_type(const char *token){
   if(!strcmp(token, "network"))
     return NETWORK_ROOT;
   if(!strcmp(token, "layer"))
@@ -96,37 +96,47 @@ static size_t layers_in_cfg(const char *str){
   return num_layers;
 }
 
-Layer *layer_from_string(const char *object){
-
-}
-
-Network network_from_string(const char *object){
-
-}
-
-void parse_layer_attribute(Layer *l, char *identifier, char **remaining){
+static void parse_layer_attribute(Layer *l, char *identifier, char **remaining){
   char buff[BUFFSIZE];
   memset(buff, '\0', BUFFSIZE);
   int offset;
 
   if(sscanf(*remaining, "%s%n", buff, &offset) != EOF){
 
+    char *original = *remaining;
     *remaining = *remaining + offset;
-    if(!strcmp(identifier, "input")){
-      while(1){
-        if(get_token_type(buff) == VALUE){
-          char *name = calloc(strlen(buff), sizeof(char));
-          strcpy(name, buff);
-          l->input_names[l->num_input_layers++] = name;
 
-          offset = 0;
-          memset(buff, '\0', BUFFSIZE);
+    if(!strcmp(identifier, "input")){
+      if(l->input_names)
+        SK_ERROR("cannot have more than one input field in a layer.");
+
+      size_t num_layers = 0;
+
+      while(1){
+        // Count the number of input layers
+        if(get_token_type(buff) == VALUE){
+          num_layers++;
+
           if(!(sscanf(*remaining, "%s%n", buff, &offset) != EOF))
             SK_ERROR("unexpected EOF while reading file.");
-          *remaining = *remaining + offset;
+          *remaining += offset;
         }
         else
-          return;
+          break;
+      }
+      *remaining = original;
+      l->input_names = calloc(num_layers, sizeof(char*));
+      l->num_input_layers = num_layers;
+      for(int i = 0; i < num_layers; i++){
+        if((sscanf(*remaining, "%s%n", buff, &offset) != EOF)){
+          *remaining += offset;
+
+          char *name = calloc(strlen(buff), sizeof(char));
+          strcpy(name, buff);
+          l->input_names[i] = name;
+        }
+        else
+          SK_ERROR("unexpected end of field while reading layer input names");
       }
     }
     else if(!strcmp(identifier, "logistic")){
@@ -152,6 +162,9 @@ void parse_layer_attribute(Layer *l, char *identifier, char **remaining){
       }
     }
     else if(!strcmp(identifier, "name")){
+      if(l->name)
+        SK_ERROR("layer can only have one name field.");
+
       char *name = calloc(strlen(buff), sizeof(char));
       strcpy(name, buff);
       l->name = name;
@@ -162,7 +175,7 @@ void parse_layer_attribute(Layer *l, char *identifier, char **remaining){
     SK_ERROR("unexpected EOF while reading file.");
 }
 
-void parse_network_attribute(Network *n, char *identifier, char **remaining){
+static void parse_network_attribute(Network *n, char *identifier, char **remaining){
   char buff[BUFFSIZE];
   memset(buff, '\0', BUFFSIZE);
   int offset;
@@ -170,6 +183,9 @@ void parse_network_attribute(Network *n, char *identifier, char **remaining){
   if(sscanf(*remaining, "%s%n", buff, &offset) != EOF){
     *remaining = *remaining + offset;
     if(!strcmp(identifier, "name")){
+      if(n->name)
+        SK_ERROR("netowrk can only have one name field.");
+
       char *name = calloc(strlen(buff), sizeof(char));
       strcpy(name, buff);
       n->name = name;
@@ -183,11 +199,17 @@ void parse_network_attribute(Network *n, char *identifier, char **remaining){
       }
     }
     else if(!strcmp(identifier, "input")){
+      if(n->input_layername)
+        SK_ERROR("network can only have one input layer field");
+
       char *name = calloc(strlen(buff), sizeof(char));
       strcpy(name, buff);
       n->input_layername= name;
     }
     else if(!strcmp(identifier, "output")){
+      if(n->output_layername)
+        SK_ERROR("network can only have one output layer field");
+
       char *name = calloc(strlen(buff), sizeof(char));
       strcpy(name, buff);
       n->output_layername= name;
@@ -195,7 +217,7 @@ void parse_network_attribute(Network *n, char *identifier, char **remaining){
   }
 }
 
-Network create_network(const char *skfile){
+Network parse_network(const char *skfile){
   if(!skfile)
     SK_ERROR("null pointer");
 
@@ -206,8 +228,6 @@ Network create_network(const char *skfile){
 
   Network n = {0};
 
-
-
   char *src = string_from_file(skfile);
   strip_string(src);
   size_t num_layers = layers_in_cfg(src);
@@ -217,7 +237,6 @@ Network create_network(const char *skfile){
   Layer **layers = malloc(sizeof(Layer*) * num_layers);
   for(int i = 0; i < num_layers; i++){
     layers[i] = calloc(sizeof(Layer), 1);
-    layers[i]->input_names = calloc(num_layers, sizeof(char*));
   }
 
   int layeridx = -1;
@@ -257,34 +276,35 @@ Network create_network(const char *skfile){
       else if(current_root == LAYER_ROOT)
         parse_layer_attribute(layers[layeridx], buff, &tmp);
     }
-
-    //else
-    //  SK_ERROR("expected a network root marker, layer root marker, or identifier but got a value.");
-
-    //printf("remaining:\n'%s'\n", tmp);
-    //getchar();
     memset(buff, '\0', BUFFSIZE);
   }
-  setbuf(stdout, NULL);
-  printf("NETWORK: '%s'\n", n.name);
-  printf("NETWORK INDIM: %lu\n", n.input_dimension);
-  printf("NETWORK INPUT LAYER: '%s'\n", n.input_layername);
-  printf("NETWORK OUTPUT LAYER: '%s'\n", n.output_layername);
 
-  for(int i = 0; i < num_layers; i++){
-    Layer *l = layers[i];
-    printf("LAYER: '%s'\n", l->name);
-    printf("INPUT LAYERS: ");
-    for(int j = 0; j < l->num_input_layers; j++){
-      printf("'%s' ", l->input_names[j]);
+  n.layers = layers;
+  n.depth = num_layers;
+
+  for(int i = 0; i < n.depth-1; i++){
+    for(int j = i + 1; j < n.depth; j++){
+      const char *name    = n.layers[i]->name;
+      const char *compare = n.layers[j]->name;
+      printf("comparing '%s' and '%s'\n", name, compare);
+      if(!strcmp(name, compare)){
+        SK_ERROR("cannot have duplicate layer names.");
+      }
     }
-    printf("\n");
-    printf("LOGISTIC: %d\n", l->logistic);
-    printf("LAYERTYPE: %d\n", l->layertype);
-      
   }
-
+  for(int i = 0; i < n.depth; i++){
+    for(int j = 0; j < (int)n.layers[i]->num_input_layers - 1; j++){
+      for(int k = j + 1; k < n.layers[i]->num_input_layers; k++){
+        const char *name    = n.layers[i]->input_names[j];
+        const char *compare = n.layers[i]->input_names[k];
+        if(!strcmp(name, compare)){
+          SK_ERROR("cannot have duplicate input layers");
+        }
+      }
+    }
+  }
   free(src);
-
   return n;
 }
+
+

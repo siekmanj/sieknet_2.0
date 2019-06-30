@@ -5,8 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <sieknet.h>
 
-
-
+Network parse_network(const char *);
 
 #endif

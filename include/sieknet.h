@@ -19,6 +19,7 @@ typedef struct layer_{
   char **input_names;
 
   struct layer_ **input_layers;
+  struct layer_ **output_layers;
   size_t num_input_layers;
   size_t size;
   size_t param_idx;

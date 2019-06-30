@@ -6,14 +6,14 @@ size: 16
 
 [layer]
 name: layer_b
-input: a, b
+input: layer_a, layer_b
 logistic: sigmoid
 type: recurrent
 size: 16
 
 [layer]
 name: layer_c
-input: a, b
+input: layer_a, layer_b
 logistic: softmax
 type: feedforward
 size: 4
