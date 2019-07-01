@@ -1,25 +1,39 @@
 [layer]
 name: layer_a
-logistic: sigmoid
 type: feedforward
+logistic: sigmoid
 size: 16
 
 [layer]
 name: layer_b
-input: layer_a, layer_b
+input: layer_a
 logistic: sigmoid
-type: recurrent
+type: feedforward
 size: 16
 
 [layer]
 name: layer_c
-input: layer_a, layer_b
-logistic: softmax
+input: layer_a, layer_d
+logistic: tanh
 type: feedforward
 size: 4
 
+[layer]
+name: layer_d
+input: layer_c, layer_b
+logistic: tanh
+type: recurrent
+size: 10
+
+[layer]
+name: layer_e
+input: layer_c, layer_b
+logistic: relu
+type: feedforward
+size: 10
+
 [network]
-name: Test
-inputdimension: 4
-input: a
-output: c
+name: test
+input_dimension: 4
+input: layer_a
+output: layer_e

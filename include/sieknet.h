@@ -7,10 +7,13 @@
 typedef enum sk_type     {SK_FF, SK_RC, SK_LSTM, SK_ATT} LayerType;
 typedef enum sk_logistic {SK_SIGMOID, SK_TANH, SK_RELU, SK_LINEAR, SK_SOFTMAX} Logistic;
 
+/*
+ * An n-dimensional tensor stored contiguously in memory.
+ */
 typedef struct tensor_{
   size_t n;
   size_t *dims;
-  void   *data;
+  float  *data;
 } Tensor;
 
 
@@ -19,6 +22,7 @@ typedef struct layer_{
   char **input_names;
 
   struct layer_ **input_layers;
+  struct layer_ **recurrent_input_layers;
   struct layer_ **output_layers;
   size_t num_input_layers;
   size_t size;
@@ -28,7 +32,8 @@ typedef struct layer_{
   size_t num_params;
   size_t num_reals;
 
-  void  *data;
+  Tensor input_gradient;
+  Tensor data;
   float *output;
 
   LayerType layertype;
@@ -65,10 +70,12 @@ void  sk_forward(Network *, float *);
 float sk_cost(float *, float *, float *, size_t);
 void  sk_backward(Network *);
 
-#define SK_ERROR(x) \
-  do {                                                             \
-    printf("ERROR: in file %s:%d, '%s'\n", __FILE__, __LINE__, x); \
-    exit(1);                                                       \
+#define SK_ERROR(...) \
+  do {                                                                                          \
+    fprintf(stderr, "ERROR: ");                                                                 \
+    fprintf(stderr, __VA_ARGS__);                                                               \
+    fprintf(stderr, "\n (From file %s:%d - function '%s()')\n", __FILE__, __LINE__, __func__);  \
+    exit(1);                                                                                    \
   } while(0)
 
 #define STATIC_LEN(arr) (sizeof(arr) / sizeof(arr[0]))

@@ -8,7 +8,6 @@
 
 Layer *layer_from_name(Network *n, const char *name){
   for(int i = 0; i < n->depth; i++){
-    printf("comparing '%s' to '%s'\n", n->layers[i]->name, name);
     if(!strcmp(n->layers[i]->name, name))
       return n->layers[i];
   }
@@ -36,10 +35,30 @@ Network create_network(const char *skfile){
         l->input_layers[j] = in;
         printf("'%s' now connected to '%s'\n", l->name, l->input_layers[j]->name);
       }else{
-        printf("ERROR: could not find layer with name '%s' while constructing graph for layer '%s'.\n", l->input_names[j], l->name);
-        SK_ERROR("bad graph config");
+        SK_ERROR("could not find layer with name '%s' while constructing graph for layer '%s'.\n", l->input_names[j], l->name);
       }
     }
+  }
+
+  n.input_layer  = layer_from_name(&n, n.input_layername);
+  n.output_layer = layer_from_name(&n, n.output_layername);
+
+  if(!n.input_layer)
+    SK_ERROR("could not find a layer with name '%s' while searching for network input layer.", n.input_layername);
+
+  if(!n.output_layer)
+    SK_ERROR("could not find a layer with name '%s' while searching for network output layer.", n.output_layername);
+
+  Layer *execution_order[n.depth];
+  memset(execution_order, '\0', sizeof(Layer*) * n.depth);
+  size_t idx = 0;
+
+  execution_order[0]         = n.input_layer;
+  execution_order[n.depth-1] = n.output_layer;
+  
+  Layer *current = n.output_layer;
+  while(current){
+
   }
 
 }
