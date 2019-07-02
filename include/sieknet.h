@@ -25,16 +25,21 @@ typedef struct layer_{
   struct layer_ **recurrent_input_layers;
   struct layer_ **output_layers;
   size_t num_input_layers;
+  size_t num_output_layers;
+  size_t rank;
+
   size_t size;
+  size_t params_per_input;
+
   size_t param_idx;
   size_t real_idx;
-  size_t params_per_input;
   size_t num_params;
   size_t num_reals;
 
   Tensor input_gradient;
   Tensor data;
   float *output;
+  float *loutput;
 
   LayerType layertype;
   Logistic  logistic;

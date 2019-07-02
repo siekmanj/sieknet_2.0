@@ -165,7 +165,6 @@ static void parse_layer_attribute(Layer *l, char *identifier, char **remaining){
 
       int size;
       if(sscanf(buff, "%d%n", &size, &offset)){
-        printf("size: %d\n", size);
         l->size = size;
         if(l->size <= 0)
           SK_ERROR("layer size must be strictly greater than zero (got %lu).", l->size);

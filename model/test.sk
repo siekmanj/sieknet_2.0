@@ -6,29 +6,22 @@ size: 16
 
 [layer]
 name: layer_b
-input: layer_a
+input: layer_a, layer_c
 logistic: sigmoid
-type: feedforward
+type: recurrent
 size: 16
 
 [layer]
 name: layer_c
-input: layer_a, layer_d
+input: layer_a, layer_b
 logistic: tanh
-type: feedforward
+type: recurrent
 size: 4
 
 [layer]
 name: layer_d
-input: layer_c, layer_b
+input: layer_a, layer_b, layer_c
 logistic: tanh
-type: recurrent
-size: 10
-
-[layer]
-name: layer_e
-input: layer_c, layer_b
-logistic: relu
 type: feedforward
 size: 10
 
@@ -36,4 +29,4 @@ size: 10
 name: test
 input_dimension: 4
 input: layer_a
-output: layer_e
+output: layer_d
