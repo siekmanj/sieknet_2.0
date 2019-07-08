@@ -1,5 +1,5 @@
-#ifndef SIEKNET_LAYER_H
-#define SIEKNET_LAYER_H
+#ifndef SIEKNET_NETWORK_H
+#define SIEKNET_NETWORK_H
 
 #include <stdlib.h>
 #include <conf.h>
@@ -22,11 +22,9 @@ typedef struct layer_{
   char **input_names;
 
   struct layer_ **input_layers;
-  struct layer_ **recurrent_input_layers;
   struct layer_ **output_layers;
   size_t num_input_layers;
   size_t num_output_layers;
-  size_t rank;
 
   size_t size;
   size_t params_per_input;
@@ -35,6 +33,9 @@ typedef struct layer_{
   size_t real_idx;
   size_t num_params;
   size_t num_reals;
+
+  int rank;
+  int visited;
 
   Tensor input_gradient;
   Tensor data;
@@ -67,6 +68,9 @@ typedef struct net_{
 
 } Network;
 
+void parse_network(Network *, const char *);
+void build_network(Network *);
+
 Network load_network(const char *, const char *);
 Network create_network(const char *);
 void save_network(const char *);
@@ -84,4 +88,7 @@ void  sk_backward(Network *);
   } while(0)
 
 #define STATIC_LEN(arr) (sizeof(arr) / sizeof(arr[0]))
+
+#define MAX(a,b) ((float)a > (float)b ? a : b)
+
 #endif

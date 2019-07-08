@@ -7,6 +7,7 @@
 
 #include <sieknet.h>
 
-Network parse_network(const char *);
+
+//Network parse_network(const char *);
 
 #endif

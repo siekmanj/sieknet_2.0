@@ -8,9 +8,8 @@
 
 static const char *sk_logistics[]           = {"sigmoid", "tanh", "relu", "linear", "softmax"};
 static const char *sk_layertypes[]          = {"feedforward", "recurrent", "lstm", "attention"};
-static const char *sk_layer_identifiers[]   = {"logistic", "size", "type", "input", "name"};
+static const char *sk_layer_identifiers[]   = {"logistic", "size", "type", "input", "name", "recurrent_input"};
 static const char *sk_network_identifiers[] = {"input_dimension", "name", "input", "output"};
-static const char *sk_root_identifiers[]    = {"network", "layer"};
 
 typedef enum sk_token_type {NETWORK_ROOT, LAYER_ROOT, IDENTIFIER, VALUE} TokenType;
 
@@ -235,7 +234,7 @@ static void parse_network_attribute(Network *n, char *identifier, char **remaini
     SK_ERROR("unexpected EOF while parsing identifier '%s'.", identifier);
 }
 
-Network parse_network(const char *skfile){
+void parse_network(Network *n, const char *skfile){
   if(!skfile)
     SK_ERROR("null pointer");
 
@@ -243,8 +242,6 @@ Network parse_network(const char *skfile){
 
   if(!fp)
     SK_ERROR("could not open file.");
-
-  Network n = {0};
 
   char *src = string_from_file(skfile);
   strip_string(src);
@@ -266,7 +263,6 @@ Network parse_network(const char *skfile){
 
   int seen_network_root = 0;
   TokenType current_root;
-  TokenType current_token;
 
   int offset;
   while(sscanf(tmp, "%s%n", buff, &offset) != EOF){
@@ -293,7 +289,7 @@ Network parse_network(const char *skfile){
     else if(current_token == IDENTIFIER){
 
       if(current_root == NETWORK_ROOT)
-        parse_network_attribute(&n, buff, &tmp);
+        parse_network_attribute(n, buff, &tmp);
 
       else if(current_root == LAYER_ROOT)
         parse_layer_attribute(layers[layeridx], buff, &tmp);
@@ -302,13 +298,13 @@ Network parse_network(const char *skfile){
     memset(buff, '\0', BUFFSIZE);
   }
 
-  n.layers = layers;
-  n.depth = num_layers;
+  n->layers = layers;
+  n->depth = num_layers;
 
-  for(int i = 0; i < n.depth-1; i++){
-    for(int j = i + 1; j < n.depth; j++){
-      const char *name    = n.layers[i]->name;
-      const char *compare = n.layers[j]->name;
+  for(int i = 0; i < n->depth-1; i++){
+    for(int j = i + 1; j < n->depth; j++){
+      const char *name    = n->layers[i]->name;
+      const char *compare = n->layers[j]->name;
 
       if(!name || !compare)
         SK_ERROR("every layer object must have a name attribute.");
@@ -317,25 +313,25 @@ Network parse_network(const char *skfile){
         SK_ERROR("cannot have duplicate layer names (layer %d, '%s', and layer %d, '%s'", i, name, j, compare);
     }
   }
-  for(int i = 0; i < n.depth; i++){
-    if(n.layers[i]->logistic == -1)
-      SK_ERROR("'%s' must have a logistic function attribute.", n.layers[i]->name);
+  for(int i = 0; i < n->depth; i++){
+    if(n->layers[i]->logistic == -1)
+      SK_ERROR("'%s' must have a logistic function attribute.", n->layers[i]->name);
     
-    if(n.layers[i]->layertype == -1)
-      SK_ERROR("'%s' must have a layertype attribute.", n.layers[i]->name);
+    if(n->layers[i]->layertype == -1)
+      SK_ERROR("'%s' must have a layertype attribute.", n->layers[i]->name);
 
-    for(int j = 0; j < (int)n.layers[i]->num_input_layers - 1; j++){
-      for(int k = j + 1; k < n.layers[i]->num_input_layers; k++){
-        const char *name    = n.layers[i]->input_names[j];
-        const char *compare = n.layers[i]->input_names[k];
+    for(int j = 0; j < (int)n->layers[i]->num_input_layers - 1; j++){
+      for(int k = j + 1; k < n->layers[i]->num_input_layers; k++){
+        const char *name    = n->layers[i]->input_names[j];
+        const char *compare = n->layers[i]->input_names[k];
         if(!strcmp(name, compare))
-          SK_ERROR("'%s' has duplicate input layers '%s' and '%s'.", n.layers[i]->name, name, compare);
+          SK_ERROR("'%s' has duplicate input layers '%s' and '%s'.", n->layers[i]->name, name, compare);
 
       }
     }
   }
   
-  if(!n.name)
+  if(!n->name)
     SK_ERROR("could not find 'name' attribute for network.");
 
   free(src);
