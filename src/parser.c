@@ -23,7 +23,8 @@ static char *string_from_file(const char *filename){
   char *ret = calloc(bytes, sizeof(char));
   
   if(ret)
-    fread(ret, 1, bytes, fp);
+    if(!fread(ret, 1, bytes, fp))
+      SK_ERROR("Unable to read from '%s'.", filename);
   
   fclose(fp);
   return ret;
@@ -241,7 +242,7 @@ void parse_network(Network *n, const char *skfile){
   FILE *fp = fopen(skfile, "rb");
 
   if(!fp)
-    SK_ERROR("could not open file.");
+    SK_ERROR("could not open file '%s'", skfile);
 
   char *src = string_from_file(skfile);
   strip_string(src);
@@ -262,7 +263,7 @@ void parse_network(Network *n, const char *skfile){
   char *tmp = src;
 
   int seen_network_root = 0;
-  TokenType current_root;
+  TokenType current_root = -1;
 
   int offset;
   while(sscanf(tmp, "%s%n", buff, &offset) != EOF){
@@ -287,6 +288,9 @@ void parse_network(Network *n, const char *skfile){
     }
     
     else if(current_token == IDENTIFIER){
+
+      if(current_root < 0)
+        SK_ERROR("Cannot parse identifier '%s' outside of root context.", buff);
 
       if(current_root == NETWORK_ROOT)
         parse_network_attribute(n, buff, &tmp);
@@ -335,7 +339,6 @@ void parse_network(Network *n, const char *skfile){
     SK_ERROR("could not find 'name' attribute for network.");
 
   free(src);
-  return n;
 }
 
 
