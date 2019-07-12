@@ -22,22 +22,6 @@ static int dfs_check_cycle(Layer *origin, Layer *check){
   return 0;
 }
 
-static void initialize_layer(Layer *l, size_t *num_params, size_t *num_reals){
-  if(!num_params || !num_reals)
-    SK_ERROR("Got null ptrs %p and %p", num_params, num_reals);
-
-  *num_params = 0;
-  *num_reals = 0;
-
-  for(int i = 0; i < l->num_input_layers; i++){
-    Layer *in = l->input_layers[i];
-    *num_params += (l->size + 1) * in->size;
-    *num_reals  += l->size + in->size;
-  }
-
-
-}
-
 /*
  * Time complexity: O(bad)
  */
@@ -136,7 +120,19 @@ void build_network(Network *n){
   assign_execution_order(n->layers, n->depth, n->input_layer, 0);
   qsort((void*)n->layers, n->depth, sizeof(Layer*), layer_comparator);
 
-  for(int i = 0; i < n->depth; i++)
+  for(int i = 0; i < n->depth; i++){
+    Layer *l = n->layers[i];
+    for(int j = 0; j < l->num_output_layers; j++){
+      Layer *out = l->output_layers[j];
+      if(out->rank <= l->rank){
+        if(l->layertype == SK_FF){
+          printf("WARNING: '%s' has layertype 'feedforward' but acts as an implicit recurrent input to '%s'. The layertype has been changed, but this may lead to unexpected results.\n", l->name, out->name);
+          l->layertype = SK_RC;
+        }
+      }
+    }
+    if(l->layertype != SK_FF)
+      n->is_recurrent = 1;
     printf("'%s' rank: %d\n", n->layers[i]->name, n->layers[i]->rank);
-
+  }
 }

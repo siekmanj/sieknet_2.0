@@ -3,11 +3,12 @@
 
 #include <parser.h>
 #include <sieknet.h>
+#include <layer.h>
 
 #define BUFFSIZE 2048
 
 static const char *sk_logistics[]           = {"sigmoid", "tanh", "relu", "linear", "softmax"};
-static const char *sk_layertypes[]          = {"feedforward", "recurrent", "lstm", "attention"};
+static const char *sk_layertypes[]          = {"feedforward", "recurrent", "lstm", "gru", "attention"};
 static const char *sk_layer_identifiers[]   = {"logistic", "size", "type", "input", "name", "recurrent_input"};
 static const char *sk_network_identifiers[] = {"input_dimension", "name", "input", "output"};
 
