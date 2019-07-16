@@ -3,7 +3,7 @@
 #include <conf.h>
 #include <layer.h>
 
-int contains_layer(Layer **arr, Layer *comp, size_t arrlen){
+int sk_contains_layer(Layer **arr, Layer *comp, size_t arrlen){
   for(int i = 0; i < arrlen; i++){
     if(arr[i] == comp)
       return 1;
@@ -11,8 +11,22 @@ int contains_layer(Layer **arr, Layer *comp, size_t arrlen){
   return 0;
 }
 
-void initialize_layer(Layer *l, int recurrent){
-  printf("initializing layer!\n");
+void sk_fully_connected_forward(Layer *l, Tensor *p, size_t t){
+  
+}
+
+void sk_layer_forward(Layer *l, Tensor *p, size_t t){
+  switch(l->layertype){
+    case SK_FF:{
+
+    }
+    case SK_RC:{
+
+    }
+  }
+}
+
+void sk_initialize_layer(Layer *l, int recurrent){
   size_t num_inputs;
   num_inputs = l->num_params = 0;
 
@@ -46,12 +60,14 @@ void initialize_layer(Layer *l, int recurrent){
   }
 
   if(recurrent){
-    l->output         = create_tensor(SIEKNET_CPU, l->size,    SIEKNET_MAX_UNROLL_LENGTH);
-    l->input_gradient = create_tensor(SIEKNET_CPU, num_inputs, SIEKNET_MAX_UNROLL_LENGTH);
+    l->output         = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
+    l->gradient       = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
+    l->input_gradient = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, num_inputs);
     l->loutput        = create_tensor(SIEKNET_CPU, l->size);
   }else{
-    l->output         = create_tensor(SIEKNET_CPU, l->size);
-    l->input_gradient = create_tensor(SIEKNET_CPU, num_inputs);
+    l->output         = create_tensor(SIEKNET_CPU, 0, l->size);
+    l->gradient       = create_tensor(SIEKNET_CPU, 0, l->size);
+    l->input_gradient = create_tensor(SIEKNET_CPU, 0, num_inputs);
   }
 }
 

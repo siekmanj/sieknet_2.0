@@ -84,7 +84,7 @@ void build_network(Network *n){
     l->input_layers = calloc(l->num_input_layers, sizeof(Layer*));
 
     for(int j = 0; j < l->num_input_layers; j++){
-      Layer *in = layer_from_name(n, l->input_names[j]);
+      Layer *in = sk_layer_from_name(n, l->input_names[j]);
       in->num_output_layers++;
 
       if(in)
@@ -108,8 +108,8 @@ void build_network(Network *n){
     }
   }
 
-  n->input_layer  = layer_from_name(n, n->input_layername);
-  n->output_layer = layer_from_name(n, n->output_layername);
+  n->input_layer  = sk_layer_from_name(n, n->input_layername);
+  n->output_layer = sk_layer_from_name(n, n->output_layername);
 
   if(!n->input_layer)
     SK_ERROR("could not find a layer with name '%s' while searching for network input layer.", n->input_layername);
@@ -133,6 +133,5 @@ void build_network(Network *n){
     }
     if(l->layertype != SK_FF)
       n->is_recurrent = 1;
-    printf("'%s' rank: %d\n", n->layers[i]->name, n->layers[i]->rank);
   }
 }

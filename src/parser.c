@@ -331,7 +331,6 @@ void parse_network(Network *n, const char *skfile){
         const char *compare = n->layers[i]->input_names[k];
         if(!strcmp(name, compare))
           SK_ERROR("'%s' has duplicate input layers '%s' and '%s'.", n->layers[i]->name, name, compare);
-
       }
     }
   }

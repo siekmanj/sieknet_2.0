@@ -13,6 +13,7 @@ typedef struct net_{
   char *input_layername;
   char *output_layername;
 
+  Layer *data_layer;
   Layer *input_layer;
   Layer **layers;
   Layer *output_layer;
@@ -34,13 +35,13 @@ typedef struct net_{
 void parse_network(Network *, const char *);
 void build_network(Network *);
 
-Network load_network(const char *, const char *);
-Network create_network(const char *);
-void save_network(const char *);
+Network sk_load_network(const char *, const char *);
+Network sk_create_network(const char *);
+void    sk_save_network(const char *);
 
 void  sk_forward(Network *, float *);
 float sk_cost(Network *, float *);
 void  sk_backward(Network *);
 
-Layer *layer_from_name(Network *, const char *);
+Layer *sk_layer_from_name(Network *, const char *);
 #endif

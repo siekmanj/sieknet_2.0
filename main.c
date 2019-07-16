@@ -7,7 +7,13 @@ const char* test2= "model/three.sk";
 
 int main(){
   printf("one:\n");
-  Network one = create_network(test0);
+  Network n = sk_create_network(test0);
+
+  float *x = calloc(n.input_dimension, sizeof(float));
+  sk_forward(&n, x);
+  sk_forward(&n, x);
+  sk_forward(&n, x);
+
   /*
   printf("two:\n");
   Network two = create_network(test1);
