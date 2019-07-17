@@ -25,10 +25,10 @@ Tensor tensor_from_arr(Device, size_t *, size_t);
 void arr_to_tensor(Tensor, float *, size_t *, size_t);
 
 
-void send_tensor_to_gpu(Tensor *);
-void send_tensor_to_cpu(Tensor *);
+void tensor_to(Device, Tensor *);
 
-void tensor_inner_product(Tensor *, size_t, Tensor *, size_t, Tensor *, size_t, size_t);
+//void tensor_inner_product(const Tensor, size_t, size_t, const Tensor, size_t, size_t, Tensor, size_t, size_t);
 void tensor_zero(Tensor *, size_t, size_t);
+void tensor_print(Tensor);
 
 #endif

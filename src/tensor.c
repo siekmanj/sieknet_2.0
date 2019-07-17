@@ -4,30 +4,57 @@
 
 #include <tensor.h>
 
+size_t get_flat_idx(Tensor t, size_t *arr, size_t len){
+  size_t idx = 0;
+  size_t memsizes[len];
+
+  for(int i = t.n - 1; i >= 0; i--){
+    if(i == t.n - 1)
+      memsizes[i] = t.dims[i];
+    else
+      memsizes[i] = memsizes[i+1] * t.dims[i+1];
+  }
+
+  for(int i = 0; i < t.n-1; i++)
+    idx += memsizes[i+1] * arr[i];
+
+  return idx;
+}
+
 void tensor_zero(Tensor *t, size_t idx, size_t len){
   if(t->device == SIEKNET_CPU){
+    float *x = (float *)&t->data[t->data_offset];
     for(int i = idx; i < len; i++)
-      t->data[i] = 0.0f;
+      x[i] = 0.0f;
 
   }else{
     SK_ERROR("Tensor zeroing not implemented on GPU.");
   }
-
 }
 
-void tensor_inner_product(Tensor *a, size_t idx_a, Tensor *b, size_t idx_b, Tensor *c, size_t idx_c, size_t len){
+/*
+ * Perform a dot-product reduction on two tensors, 
+ * and store the result in a third vector.
+ */
+void tensor_reduce_dot(const Tensor *a, size_t idx_a, size_t axis_a,
+                       const Tensor *b, size_t idx_b, size_t axis_b,
+                       Tensor *c, size_t idx_c, size_t len){
   if(a->device != b->device || a->device != c->device)
     SK_ERROR("Devices don't match between tensors a, b, and c.");
 
   if(a->device == SIEKNET_CPU){
-    for(int i = 0; i < len; i++)
-      c->data[idx_c + i] = a->data[idx_a + i] * b->data[idx_b + i];
+    const float *w = &a->data[a->data_offset + idx_a];
+    const float *x = &b->data[b->data_offset + idx_b];
 
+    for(int i = 0; i < len; i++){
+      float *w, *x, *y;
+      //size_t offset_a = idx_a + i * stride_a;
+      //size_t offset_b = idx_b + i * stride_b;
+      //c->data[idx_c] += a->data[offset_a] * b->data[offset_b];
+    }
   }else{
-    SK_ERROR("Dot product not implemented on GPU.");
+    SK_ERROR("Tensor dot product not implemented on GPU.");
   }
-
-
 }
 
 void arr_to_tensor(Tensor t, float *buff, size_t *arr, size_t len){
@@ -43,22 +70,6 @@ void arr_to_tensor(Tensor t, float *buff, size_t *arr, size_t len){
   }
 }
 
-static size_t get_flat_idx(Tensor t, size_t *arr, size_t len){
-  size_t idx = 0;
-  size_t memsizes[len];
-
-  for(int i = t.n-1; i >= 0; i--){
-    if(i == t.n-1)
-      memsizes[i] = t.dims[i];
-    else
-      memsizes[i] = memsizes[i+1] * t.dims[i+1];
-  }
-
-  for(int i = 0; i < t.n-1; i++)
-    idx += memsizes[i+1] * arr[i];
-
-  return idx;
-}
 
 
 Tensor tensor_from_arr(Device device, size_t *dimensions, size_t num_dimensions){

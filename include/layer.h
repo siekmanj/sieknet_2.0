@@ -44,6 +44,6 @@ int contains_layer(Layer **, Layer *, size_t);
 
 void sk_initialize_layer(Layer *, int);
 
-void sk_layer_forward(Layer *);
+void sk_layer_forward(Layer *, const Tensor, size_t);
 
 #endif
