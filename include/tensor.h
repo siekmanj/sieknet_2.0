@@ -24,11 +24,15 @@ Tensor tensor_from_arr(Device, size_t *, size_t);
 #define copy_to_tensor(tensor, buff, ...) arr_to_tensor(tensor, buff, (size_t[]){__VA_ARGS__}, sizeof((size_t[]){__VA_ARGS__})/sizeof(size_t))
 void arr_to_tensor(Tensor, float *, size_t *, size_t);
 
+#define get_offset(tensor, ...) get_flat_idx(tensor, (size_t[]){__VA_ARGS__}, sizeof((size_t[]){__VA_ARGS__})/sizeof(size_t))
+size_t get_flat_idx(Tensor, size_t *, size_t);
+
 
 void tensor_to(Device, Tensor *);
 
-//void tensor_inner_product(const Tensor, size_t, size_t, const Tensor, size_t, size_t, Tensor, size_t, size_t);
-void tensor_zero(Tensor *, size_t, size_t);
+void tensor_reduce_dot(const Tensor, size_t, size_t, const Tensor, size_t, size_t, Tensor, size_t, size_t);
+
+void tensor_zero(Tensor, size_t, size_t);
 void tensor_print(Tensor);
 
 #endif

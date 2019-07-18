@@ -11,13 +11,13 @@ int sk_contains_layer(Layer **arr, Layer *comp, size_t arrlen){
   return 0;
 }
 
-void sk_fully_connected_forward(Layer *l, const Tensor p, size_t t){
+void sk_fc_forward(Layer *l, const Tensor p, size_t t){
   size_t param_idx = l->param_idx;
   for(int j = 0; j < l->size; j++){
     param_idx++;
 
     Tensor y = l->output;
-    y.data_offset = get_flat_idx(y, &t, 1);
+    y.data_offset = get_offset(y, t);
 
     for(int i = 0; i < l->num_input_layers; i++){
       Layer *in = l->input_layers[i];
@@ -33,25 +33,15 @@ void sk_fully_connected_forward(Layer *l, const Tensor p, size_t t){
       else
         x = in->output;
 
-      x.data_offset = get_flat_idx(x, &t, 1);
+      x.data_offset = get_offset(x, t);
 
+      tensor_reduce_dot(w, 0, 0, 
+                        x, 0, 0, 
+                        y, j, in->size);
 
-      Tensor *y = l->output;
-
-      tensor_reduce_dot(&w, 0, 0, x, 0, 0, y, j, in->size);
-
+      param_idx += in->size;
 
     }
-    /*
-      size_t idx_x = get_flat_idx(x, &t, 1);
-      size_t idx_w = l->param_idx + 1;
-      size_t idx_y = j;
-
-      tensor_inner_product(x, idx_x, 0,
-                           w, idx_w, 0,
-                           y, idx_y, in->size);
-
-    */
   }
   for(int i = 0; i < l->size; i++){
     //Tensor *b, *y;
@@ -61,9 +51,22 @@ void sk_fully_connected_forward(Layer *l, const Tensor p, size_t t){
 
 void sk_layer_forward(Layer *l, const Tensor p, size_t t){
   switch(l->layertype){
-    case SK_FF: // Intentional fall-through
+    case SK_FF:
     case SK_RC:{
-      sk_fully_connected_forward(l, p, t);
+      sk_fc_forward(l, p, t);
+      break;
+    }
+    case SK_LSTM:{
+      SK_ERROR("LSTM forward pass not implemented.");
+      break;
+    }
+    case SK_GRU:{
+      SK_ERROR("GRU forward pass not implemented.");
+      break;
+    }
+    case SK_ATT:{
+      SK_ERROR("Attention forward pass not implemented.");
+      break;
     }
   }
 }

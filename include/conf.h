@@ -7,11 +7,14 @@
 
 
 #define SK_ERROR(...) \
-  do {                                                                                          \
-    fprintf(stderr, "ERROR: ");                                                                 \
-    fprintf(stderr, __VA_ARGS__);                                                               \
-    fprintf(stderr, "\n (From file %s:%d - function '%s()')\n", __FILE__, __LINE__, __func__);  \
-    exit(1);                                                                                    \
+  do {                                                                                    \
+    fprintf(stderr, "\nFATAL ERROR: ");                                                   \
+    fprintf(stderr, "in file %s:%d - function '%s()'):\n", __FILE__, __LINE__, __func__); \
+    fprintf(stderr, "             ");                                                     \
+    fprintf(stderr, __VA_ARGS__);                                                         \
+    fprintf(stderr, "             ");                                                     \
+    fprintf(stderr, "Exiting immediately.\n");                                            \
+    exit(1);                                                                              \
   } while(0)
 
 #define STATIC_LEN(arr) (sizeof(arr) / sizeof(arr[0]))
