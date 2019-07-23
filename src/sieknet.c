@@ -25,19 +25,19 @@ static void initialize_network(Network *n){
   if(n->is_recurrent)
     data->output     = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, n->input_dimension);
   else
-    data->output     = create_tensor(SIEKNET_CPU, 0, n->input_dimension);
+    data->output     = create_tensor(SIEKNET_CPU, n->input_dimension);
 
   n->data_layer = data;
 
-  Layer **new_input_layers = (Layer **)malloc((n->layers[0]->num_input_layers + 1) * sizeof(Layer *));
+  Layer **new_input_layers = (Layer **)malloc((n->input_layer->num_input_layers + 1) * sizeof(Layer *));
 
   new_input_layers[0] = data;
-  for(int i = 1; i < n->layers[0]->num_input_layers + 1; i++)
-    new_input_layers[i] = n->layers[0]->input_layers[i-1];
-  free(n->layers[0]->input_layers);
+  for(int i = 1; i < n->input_layer->num_input_layers + 1; i++)
+    new_input_layers[i] = n->input_layer->input_layers[i-1];
+  free(n->input_layer->input_layers);
   
-  n->layers[0]->input_layers = new_input_layers;
-  n->layers[0]->num_input_layers++;
+  n->input_layer->input_layers = new_input_layers;
+  n->input_layer->num_input_layers++;
 
   n->params     = create_tensor(SIEKNET_CPU, param_idx);
   n->param_grad = create_tensor(SIEKNET_CPU, param_idx);
@@ -78,7 +78,20 @@ Network sk_create_network(const char *skfile){
 
 void sk_forward(Network *n, float *x){
 
-  copy_to_tensor(n->data_layer->output, x, n->t);
+  switch(n->data_layer->output.n){
+    case 1:{
+      copy_to_tensor(n->data_layer->output, x);
+      break;
+    }
+    case 2:{
+      copy_to_tensor(n->data_layer->output, x, n->t);
+      break;
+    }
+    default:{
+      SK_ERROR("invalid data tensor dims.");
+      break;
+    }
+  }
 
   for(int i = 0; i < n->depth; i++)
     sk_layer_forward(n->layers[i], n->params, n->t);

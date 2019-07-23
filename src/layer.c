@@ -2,6 +2,7 @@
 
 #include <conf.h>
 #include <layer.h>
+#include <tensor.h>
 
 int sk_contains_layer(Layer **arr, Layer *comp, size_t arrlen){
   for(int i = 0; i < arrlen; i++){
@@ -11,41 +12,64 @@ int sk_contains_layer(Layer **arr, Layer *comp, size_t arrlen){
   return 0;
 }
 
+
+/* 
+ * For a layer of size n,
+ * l->param_idx
+ *     |
+ *     V
+ * ... b1 b2 ... bn n0_w0_l0 n1_w1_l0 ... w_m_l0 w_0_l1 w_1_l1 ... w_k_l1
+ */
+
 void sk_fc_forward(Layer *l, const Tensor p, size_t t){
   size_t param_idx = l->param_idx;
-  for(int j = 0; j < l->size; j++){
-    param_idx++;
 
-    Tensor y = l->output;
-    y.data_offset = get_offset(y, t);
+  Tensor b = p;
+  b.data_offset = param_idx;
+  b.dims        = &l->size;
+  b.n           = 1;
 
-    for(int i = 0; i < l->num_input_layers; i++){
-      Layer *in = l->input_layers[i];
+  Tensor y = get_subtensor(l->output, t);
 
-      Tensor w = p;
-      w.data_offset = param_idx;
-      w.dims        = &in->size;
-      w.n           = 1;
+#if 0
+  /* Begin by elementwise-adding the bias to the output of this layer */
+  tensor_elementwise_add(b, 0,  // Operand 1, no offset, axis 0
+                         y, 0,  // Operand 2, no offset, axis 0
+                         y, 0); // Destination tensor
 
-      Tensor x;
-      if(in->rank >= l->rank)
-        x = in->loutput;
-      else
-        x = in->output;
+#endif
 
-      x.data_offset = get_offset(x, t);
+  param_idx += l->size;
 
-      tensor_reduce_dot(w, 0, 0, 
-                        x, 0, 0, 
-                        y, j, in->size);
+  /* Loop through all the input layers and do a matrix mult */
+  for(int i = 0; i < l->num_input_layers; i++){
 
-      param_idx += in->size;
+    Layer *in = l->input_layers[i];
 
-    }
-  }
-  for(int i = 0; i < l->size; i++){
-    //Tensor *b, *y;
-    //tensor_add(
+    /* Create a new tensor from the network's parameter tensor with the correct shape */
+    size_t w_dims[] = {l->size, in->size};
+    Tensor w = p;
+    w.data_offset = param_idx;
+    w.dims        = w_dims;
+    w.n           = 2;
+
+    /* Get the subtensor for this timestep */
+    Tensor x;
+
+    if(in->rank >= l->rank)
+      x = in->loutput;
+
+    else if(l->input_layers[i]->output.n == 1)
+      x = in->output;
+
+    else
+      x = get_subtensor(in->output, t);
+
+    tensor_mmult(w, 1, 0,
+                 x, 0, 0,
+                 y, 0, 0);
+
+    
   }
 }
 
@@ -109,9 +133,9 @@ void sk_initialize_layer(Layer *l, int recurrent){
     l->gradient       = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
     l->input_gradient = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, num_inputs);
   }else{
-    l->output         = create_tensor(SIEKNET_CPU, 0, l->size);
-    l->gradient       = create_tensor(SIEKNET_CPU, 0, l->size);
-    l->input_gradient = create_tensor(SIEKNET_CPU, 0, num_inputs);
+    l->output         = create_tensor(SIEKNET_CPU, l->size);
+    l->gradient       = create_tensor(SIEKNET_CPU, l->size);
+    l->input_gradient = create_tensor(SIEKNET_CPU, num_inputs);
   }
   l->loutput = create_tensor(SIEKNET_CPU, l->size);
 }

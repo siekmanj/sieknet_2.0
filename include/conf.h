@@ -5,6 +5,10 @@
 #define SIEKNET_MAX_UNROLL_LENGTH 100
 #endif
 
+#ifndef SIEKNET_DEBUG
+#define SIEKNET_DEBUG
+#endif
+
 
 #define SK_ERROR(...) \
   do {                                                                                    \
@@ -13,13 +17,20 @@
     fprintf(stderr, "             ");                                                     \
     fprintf(stderr, __VA_ARGS__);                                                         \
     fprintf(stderr, "             ");                                                     \
-    fprintf(stderr, "Exiting immediately.\n");                                            \
+    fprintf(stderr, "\nExiting immediately.\n");                                          \
     exit(1);                                                                              \
   } while(0)
 
 #define STATIC_LEN(arr) (sizeof(arr) / sizeof(arr[0]))
 
 #define MAX(a,b) ((float)a > (float)b ? a : b)
+#define MIN(a,b) ((float)a < (float)b ? a : b)
+#define SWAP(a,b) \
+  do {            \
+    a ^= b;       \
+    b ^= a;       \
+    a ^= b;       \
+  } while(0)
 
 #endif
 
