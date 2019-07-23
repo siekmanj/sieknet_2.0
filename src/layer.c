@@ -65,9 +65,7 @@ void sk_fc_forward(Layer *l, const Tensor p, size_t t){
     else
       x = get_subtensor(in->output, t);
 
-    tensor_mmult(w, 1, 0,
-                 x, 0, 0,
-                 y, 0, 0);
+    tensor_mmult(w, x, y);
 
     
   }

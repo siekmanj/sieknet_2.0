@@ -34,13 +34,9 @@ Tensor tensor_to_subtensor(Tensor, size_t *, size_t);
 
 void tensor_to(Device, Tensor *);
 
-void tensor_reduce_dot(const Tensor, size_t, size_t,
-                       const Tensor, size_t, size_t,
-                       Tensor,       size_t, size_t);
+float tensor_reduce_dot(const Tensor, const Tensor);
 
-void tensor_mmult(const Tensor, size_t, size_t,
-                  const Tensor, size_t, size_t,
-                  Tensor,       size_t, size_t);
+void tensor_mmult(const Tensor, const Tensor, Tensor);
 
 
 void tensor_elementwise_add(const Tensor, size_t,
