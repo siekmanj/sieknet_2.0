@@ -22,8 +22,8 @@ typedef struct tensor_{
 #define create_tensor(device, ...) tensor_from_arr(device, (size_t[]){__VA_ARGS__}, sizeof((size_t[]){__VA_ARGS__})/sizeof(size_t))
 Tensor tensor_from_arr(Device, size_t *, size_t);
 
-#define copy_to_tensor(tensor, buff, ...) arr_to_tensor(tensor, buff, (size_t[]){__VA_ARGS__}, sizeof((size_t[]){__VA_ARGS__})/sizeof(size_t))
-void arr_to_tensor(Tensor, float *, size_t *, size_t);
+#define copy_to_tensor(buff, bufflen, tensor, ...) arr_to_tensor(buff, bufflen, tensor, (size_t[]){__VA_ARGS__}, sizeof((size_t[]){__VA_ARGS__})/sizeof(size_t))
+void arr_to_tensor(float *, size_t, Tensor, size_t *, size_t);
 
 #define tensor_get_offset(tensor, ...) get_flat_idx(tensor, (size_t[]){__VA_ARGS__}, sizeof((size_t[]){__VA_ARGS__})/sizeof(size_t))
 size_t get_flat_idx(Tensor, size_t *, size_t);

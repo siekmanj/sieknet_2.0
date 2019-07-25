@@ -254,6 +254,7 @@ void parse_network(Network *n, const char *skfile){
     layers[i] = calloc(sizeof(Layer), 1);
     layers[i]->logistic = -1;
     layers[i]->layertype = -1;
+    layers[i]->weight_initialization = -1;
     layers[i]->size = 0;
   }
 
@@ -324,6 +325,9 @@ void parse_network(Network *n, const char *skfile){
     
     if(n->layers[i]->layertype == -1)
       SK_ERROR("'%s' must have a layertype attribute.", n->layers[i]->name);
+
+    if(n->layers[i]->weight_initialization == -1)
+      n->layers[i]->weight_initialization = SK_XAVIER;
 
     for(int j = 0; j < (int)n->layers[i]->num_input_layers - 1; j++){
       for(int k = j + 1; k < n->layers[i]->num_input_layers; k++){

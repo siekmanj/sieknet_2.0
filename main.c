@@ -13,6 +13,12 @@ int main(){
 #if 0
   Tensor a = create_tensor(SIEKNET_CPU, 4, 3);
   tensor_fill_random(a);
+  Tensor b = get_subtensor(a, 4, 2);
+  tensor_print(b);
+#endif
+#if 0
+  Tensor a = create_tensor(SIEKNET_CPU, 4, 3);
+  tensor_fill_random(a);
   Tensor a1 = get_subtensor(a, 0);
   Tensor a2 = get_subtensor(a, 1);
   Tensor a3 = get_subtensor(a, 2);
@@ -48,10 +54,14 @@ int main(){
   tensor_print(c);
 
 #endif
-#if 0
+#if 1
   Network n = sk_create_network(test0);
 
   float *x = calloc(n.input_dimension, sizeof(float));
+  for(int i = 0; i < n.input_dimension; i++){
+    x[i] = normal(0, 1);
+    printf("x[%d]: %f\n", i, x[i]);
+  }
   sk_forward(&n, x);
   /*
   sk_forward(&n, x);

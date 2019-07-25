@@ -19,15 +19,6 @@ void tensor_print(Tensor t){
 
   printf("{\n");
   while(1){
-#if 0
-    printf("pos: (");
-    for(int i = 0; i < t.n; i++){
-      printf("%lu vs %lu", pos[i], t.dims[i]);
-      if(i < t.n - 1) printf(", ");
-      else printf(")\n");
-    }
-#endif
-
     for(int i = 1; i < t.n - 1; i++){
       if(!(pos[i] % t.dims[i])){
         int new_row = 1;
@@ -120,13 +111,14 @@ void tensor_transpose(Tensor t, size_t dim1, size_t dim2){
 
 }
 
-
-size_t tmp_dim = 1;
-size_t tmp_str = 0;
+static size_t tmp_dim = 1;
+static size_t tmp_str = 0;
 Tensor tensor_to_subtensor(Tensor t, size_t *arr, size_t len){
   Tensor ret = t;
-  if(len > t.n)
+
+  if(len > t.n){
     SK_ERROR("Cannot get subtensor with dimension less than 1 from tensor of dimension %lu\n", t.n);
+  }
   else if(len == t.n){
     ret.n            = 1;
     ret.dims         = &tmp_dim;
@@ -138,7 +130,6 @@ Tensor tensor_to_subtensor(Tensor t, size_t *arr, size_t len){
     ret.strides      = &t.strides[len];
     ret.data_offset += get_flat_idx(t, arr, len);
   }
-
   return ret;
 }
 
@@ -150,9 +141,10 @@ static size_t tensor_axis_stride(Tensor t, size_t axis){
 }
 
 void tensor_mmult(const Tensor a, const Tensor b, Tensor c){
-
+#ifdef SIEKNET_DEBUG
   if(a.n > 2 || b.n > 2 || c.n > 2)
     SK_ERROR("Dimensions of all matrices must be 2 or fewer - got dimensions %lu, %lu, %lu.\n", a.n, b.n, c.n);
+#endif
   
   size_t outer_dim_a = a.n == 2 ? a.dims[a.n - 2] : a.dims[0];
   size_t inner_dim_a = a.n == 2 ? a.dims[a.n - 1] : 1;
@@ -163,94 +155,90 @@ void tensor_mmult(const Tensor a, const Tensor b, Tensor c){
   size_t outer_dim_c = c.n == 2 ? c.dims[c.n - 2] : c.dims[0];
   size_t inner_dim_c = c.n == 2 ? c.dims[c.n - 1] : 1;
 
-  size_t outer_stride_a = a.n == 2 ? a.strides[a.n - 2] : 1;
-  size_t inner_stride_a = a.n == 2 ? a.strides[a.n - 1] : 1;
-
-  size_t outer_stride_b = b.n == 2 ? b.strides[b.n - 2] : 1;
-  size_t inner_stride_b = b.n == 2 ? b.strides[b.n - 1] : 1;
-
-  size_t outer_stride_c = c.n == 2 ? c.strides[c.n - 2] : 1;
-  size_t inner_stride_c = c.n == 2 ? c.strides[c.n - 1] : 1;
-
+#ifdef SIEKNET_DEBUG
   if(inner_dim_a != outer_dim_b)
     SK_ERROR("Tensor dimensions must match - got (%lu x %lu) * (%lu x %lu).", outer_dim_a, inner_dim_a, outer_dim_b, inner_dim_b);
 
   if(outer_dim_a != outer_dim_c || inner_dim_b != inner_dim_c)
     SK_ERROR("Output tensor dimension must match - expected (%lu x %lu) but got (%lu x %lu).", outer_dim_a, inner_dim_b, outer_dim_c, inner_dim_c);
+#endif
 
-  tensor_transpose(b, 0, 1);
+  if(b.n > 1)
+    tensor_transpose(b, 0, 1); // swap axes 0 and 1
+
   for(int i = 0; i < outer_dim_a; i++){
-    //size_t offset_a = i * outer_stride_a;
-    //printf("GETTING SUBTENSOR FOR I: %lu\n", i);
-    Tensor w = get_subtensor(a, i);
-    //tensor_print(w);
+    Tensor w, x, y;
+    if(a.n > 1)
+      w = get_subtensor(a, i);
+    else
+      w = a;
 
     for(int j = 0; j < inner_dim_b; j++){
-      Tensor x = get_subtensor(b, j);
-      Tensor y = get_subtensor(c, i, j);
+      if(b.n > 1)
+        x = get_subtensor(b, j);
+      else
+        x = b;
+
+      if(c.n > 1)
+        y = get_subtensor(c, i, j);
+      else
+        y = get_subtensor(c, i);
+
       ((float*)y.data)[y.data_offset] += tensor_reduce_dot(w, x);
-      tensor_print(y);
-      //tensor_print(x);
-      //printf("Doing c[%lu, %lu]:\n", i, j);
-
-      //size_t offset_b = j * inner_stride_b;
-      //size_t offset_c = i * outer_stride_c + j * inner_stride_c;
-
-      //tensor_reduce_dot
-
-      /*
-      tensor_reduce_dot(a, offset_a, inner_stride_a,
-                        b, offset_b, outer_stride_b,
-                        c, offset_c, outer_dim_b);
-      */
     }
   }
-  tensor_transpose(b, 0, 1); // return x to its original position
+  if(b.n > 1)
+    tensor_transpose(b, 0, 1); // un-swap axes 0 and 1
 }
 
 /*
  * Perform a dot-product reduction on two tensors,
+ * CPU only.
  */
 float tensor_reduce_dot(const Tensor a, const Tensor b){
+#ifdef SIEKNET_DEBUG
+  if(a.n != 1 || b.n != 1)
+    SK_ERROR("Dot product not defined for tensors greater than dimension 1 (got dimensions %lu and %lu).\n", a.n, b.n);
 
-  /*
+  if(a.dims[0] != b.dims[0])
+    SK_ERROR("Dot product not defined for tensors of unequal length (%lu vs %lu)\n", a.dims[0], b.dims[0]);
+#endif
+
   float ret = 0;
   if(a.device == SIEKNET_CPU){
-    const float *w = &((float*)a.data)[a.data_offset + offset_a];
-    const float *x = &((float*)b.data)[b.data_offset + offset_b];
+    const float *w = &((float*)a.data)[a.data_offset];
+    const float *x = &((float*)b.data)[b.data_offset];
 
-    for(int i = 0; i < len; i++){
-      printf("y[%lu] += %f * %f\n", offset_c, w[stride_a * i], x[stride_b * i]);
-      ret += w[stride_a * i] * x[stride_b * i];
+    for(int i = 0; i < b.dims[0]; i++){
+      ret += w[a.strides[0]* i] * x[b.strides[0]* i];
     }
-    return;
+    return ret;
   }
 
   if(a.device == SIEKNET_GPU){
-    SK_ERROR("tensor_reduce_dot not yet implemented on GPU.");
-    return;
-
+    SK_ERROR("tensor_reduce_dot can only be run on the CPU.");
   }
 
   else{
     SK_ERROR("Invalid device.");
   }
-  */
+  return 0;
 }
 
-void arr_to_tensor(Tensor t, float *buff, size_t *arr, size_t len){
+void arr_to_tensor(float *buff, size_t bufflen, Tensor t, size_t *arr, size_t len){
+  if(len != t.n - 1)
+    SK_ERROR("Expected %lu indices for a %lu-dimensional tensor, but got %lu.", t.n - 1, t.n, len);
+
+  if(bufflen != t.dims[t.n - 1])
+    SK_ERROR("Buffer must be of length %lu (got %lu) for tensor with innermost dimension %lu", t.dims[t.n-1], bufflen, t.dims[t.n-1]);
+
   if(t.device == SIEKNET_CPU){
-    if(len != t.n - 1)
-      SK_ERROR("Expected %lu indices for a %lu-dimensional tensor, but got %lu.", t.n - 1, t.n, len);
-
-    size_t idx = get_flat_idx(t, arr, len);
-
+    float *dest = &((float*)t.data)[t.data_offset + get_flat_idx(t, arr, len)];
+    memcpy(dest, buff, sizeof(float) * bufflen);
   }else if(t.device == SIEKNET_GPU){
     SK_ERROR("GPU currently not supported.");
   }
 }
-
-
 
 Tensor tensor_from_arr(Device device, size_t *dimensions, size_t num_dimensions){
   size_t num_elements = 1;
@@ -272,7 +260,6 @@ Tensor tensor_from_arr(Device device, size_t *dimensions, size_t num_dimensions)
   memcpy(ret.dims, dimensions, num_dimensions * sizeof(size_t));
   for(int i = 0; i < ret.n; i++){
     ret.strides[i] = tensor_axis_stride(ret, ret.n - i - 1);
-    printf("dim %lu has stride %lu\n", ret.dims[i], ret.strides[i]);
   }
 
   return ret;
