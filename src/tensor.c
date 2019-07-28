@@ -5,72 +5,6 @@
 #include <tensor.h>
 #include <util.h>
 
-
-void tensor_print(Tensor t){
-  printf("Tensor: (");
-  for(int i = 0; i < t.n; i++){
-    printf("%lu", t.dims[i]);
-    if(i < t.n - 1) printf(", ");
-    else printf(")\n");
-  }
-
-  size_t pos[t.n];
-  memset(pos, '\0', t.n * sizeof(size_t));
-
-  printf("{\n");
-  while(1){
-    for(int i = 1; i < t.n - 1; i++){
-      if(!(pos[i] % t.dims[i])){
-        int new_row = 1;
-        for(int j = i; j < t.n-1; j++){
-          if((pos[j] % t.dims[j]))
-            new_row = 0;
-        }
-
-        if(new_row){
-          for(int j = 0; j < i; j++){
-            printf("  ");
-          }
-          printf("{\n");
-        }
-      }
-    }
-
-    for(int i = 0; i < t.n; i++){
-      printf("  ");
-    }
-
-    printf("{ ");
-    for(int i = 0; i < t.dims[t.n - 1]; i++){
-      pos[t.n - 1] = i;
-      printf("%6.4f", ((float *)t.data)[t.data_offset + get_flat_idx(t, pos, t.n)]);
-      if(i < t.dims[t.n - 1] - 1) printf(", ");
-      else printf(" }\n");
-    }
-
-    pos[t.n - 2]++;
-    for(int i = t.n - 2; i > 0; i--){
-      if(!(pos[i] % t.dims[i])){
-        pos[i-1]++;
-        pos[i] = 0;
-        for(int j = 0; j < i; j++){
-          printf("  ");
-        }
-        printf("}\n");
-      }else
-        break;
-    }
-
-    if(pos[0] == t.dims[0]){
-      printf("}\n");
-      break;
-    }
-
-    if(t.n == 1)
-      break;
-  }
-}
-
 size_t get_flat_idx(Tensor t, size_t *arr, size_t len){
   size_t idx = 0;
 
@@ -91,10 +25,13 @@ void tensor_fill_random(Tensor t){
     reals[i] = normal(0, 1);
 }
 
-void tensor_zero(Tensor t, size_t idx, size_t len){
+void tensor_zero(Tensor t){
   if(t.device == SIEKNET_CPU){
+    size_t len = 1;
+    for(int i = 0; i < t.n; i++)
+      len *= t.dims[i];
     float *x = &((float *)t.data)[t.data_offset];
-    for(int i = idx; i < len; i++)
+    for(int i = 0; i < len; i++)
       x[i] = 0.0f;
 
   }else{
@@ -102,9 +39,59 @@ void tensor_zero(Tensor t, size_t idx, size_t len){
   }
 }
 
+void tensor_sigmoid(Tensor t){
+  if(t.device == SIEKNET_CPU){
+
+  }else if(t.device == SIEKNET_GPU){
+    SK_ERROR("Tensor zeroing not implemented on GPU.");
+  }else{
+    SK_ERROR("Invalid device.");
+  }
+}
+
+void tensor_tanh(Tensor t){
+  if(t.device == SIEKNET_CPU){
+
+  }else if(t.device == SIEKNET_GPU){
+    SK_ERROR("Tensor zeroing not implemented on GPU.");
+  }else{
+    SK_ERROR("Invalid device.");
+  }
+}
+
+void tensor_relu(Tensor t){
+  if(t.device == SIEKNET_CPU){
+
+  }else if(t.device == SIEKNET_GPU){
+    SK_ERROR("Tensor zeroing not implemented on GPU.");
+  }else{
+    SK_ERROR("Invalid device.");
+  }
+}
+
+void tensor_selu(Tensor t){
+  if(t.device == SIEKNET_CPU){
+
+  }else if(t.device == SIEKNET_GPU){
+    SK_ERROR("Tensor zeroing not implemented on GPU.");
+  }else{
+    SK_ERROR("Invalid device.");
+  }
+}
+
+void tensor_softmax(Tensor t){
+  if(t.device == SIEKNET_CPU){
+
+  }else if(t.device == SIEKNET_GPU){
+    SK_ERROR("Tensor zeroing not implemented on GPU.");
+  }else{
+    SK_ERROR("Invalid device.");
+  }
+}
+
 void tensor_transpose(Tensor t, size_t dim1, size_t dim2){
   if(dim1 > t.n || dim2 > t.n)
-    SK_ERROR("Invalid axis (%lu, %lu) for tensor with dimension %lu.", dim1, dim2, t.n);
+    SK_ERROR("Invalid axes (%lu, %lu) for tensor with dimension %lu.", dim1, dim2, t.n);
 
   SWAP(t.dims[t.n - dim1 - 1], t.dims[t.n - dim2 - 1]);
   SWAP(t.strides[t.n - dim1 - 1], t.strides[t.n - dim2 - 1]);
@@ -138,6 +125,29 @@ static size_t tensor_axis_stride(Tensor t, size_t axis){
   for(int i = 0; i < axis; i++)
     stride *= t.dims[t.n - i - 1];
   return stride;
+}
+
+/*
+ * TODO: Tensor broadcasting?
+ */
+void tensor_elementwise_add(const Tensor a, const Tensor b, Tensor c){
+  if(a.n != b.n || a.n != c.n)
+    SK_ERROR("Tensors must have same number of dims (%lu vs %lu vs %lu).", a.n, b.n, c.n);
+    
+  for(int i = 0; i < a.n; i++)
+    if(a.dims[i] != b.dims[i] || a.dims[i] != c.dims[i])
+      SK_ERROR("Tensor dimensions do not match on dimension %d: %lu vs %lu vs %lu\n", i, a.dims[i], b.dims[i], c.dims[i]);
+  
+  if(a.n > 1)
+    SK_ERROR("Tensor addition above 1 dimension not supported.");
+
+  float *src_a  = &((float*)a.data)[a.data_offset];
+  float *src_b  = &((float*)b.data)[b.data_offset];
+  float *dest_c = &((float*)c.data)[c.data_offset];
+  for(int i = 0; i < a.dims[0]; i++){
+    dest_c[i * c.strides[0]] = src_a[i * a.strides[0]] + src_b[i * b.strides[0]];
+  }
+
 }
 
 void tensor_mmult(const Tensor a, const Tensor b, Tensor c){
@@ -263,4 +273,62 @@ Tensor tensor_from_arr(Device device, size_t *dimensions, size_t num_dimensions)
   }
 
   return ret;
+}
+
+void tensor_print(Tensor t){
+  printf("Tensor: (");
+  for(int i = 0; i < t.n; i++){
+    printf("%lu", t.dims[i]);
+    if(i < t.n - 1) printf(" x ");
+    else printf(")\n");
+  }
+
+  size_t pos[t.n];
+  memset(pos, '\0', t.n * sizeof(size_t));
+
+  printf("{\n");
+  while(1){
+    for(int i = 1; i < t.n - 1; i++){
+      if(!(pos[i] % t.dims[i])){
+        int new_row = 1;
+        for(int j = i; j < t.n-1; j++)
+          if((pos[j] % t.dims[j]))
+            new_row = 0;
+        if(new_row){
+          for(int j = 0; j < i; j++)
+            printf("  ");
+          printf("{\n");
+        }
+      }
+    }
+
+    for(int i = 0; i < t.n; i++)
+      printf("  ");
+
+    printf("{ ");
+    for(int i = 0; i < t.dims[t.n - 1]; i++){
+      pos[t.n - 1] = i;
+      printf("%6.4f", ((float *)t.data)[t.data_offset + get_flat_idx(t, pos, t.n)]);
+      if(i < t.dims[t.n - 1] - 1) printf(", ");
+      else printf(" }\n");
+    }
+
+    pos[t.n - 2]++;
+    for(int i = t.n - 2; i > 0; i--){
+      if(!(pos[i] % t.dims[i])){
+        pos[i-1]++;
+        pos[i] = 0;
+        for(int j = 0; j < i; j++)
+          printf("  ");
+        printf("}\n");
+      }else break;
+    }
+
+    if(pos[0] == t.dims[0]){
+      printf("}\n");
+      break;
+    }
+
+    if(t.n == 1) break;
+  }
 }

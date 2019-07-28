@@ -7,6 +7,7 @@
 #include <parser.h>
 
 static void initialize_network(Network *n){
+  /* Use a dummy layer to send input to the network */
   Layer *data = (Layer *)malloc(sizeof(Layer));
   data->size       = n->input_dimension;
   data->rank       = -1;
@@ -18,17 +19,20 @@ static void initialize_network(Network *n){
   else
     data->output     = create_tensor(SIEKNET_CPU, n->input_dimension);
 
+  /*
+   * Take the current input layer and add our dummy layer
+   * as an input
+   */
   n->data_layer = data;
   Layer **new_input_layers = (Layer **)malloc((n->input_layer->num_input_layers + 1) * sizeof(Layer *));
-
   new_input_layers[0] = data;
   for(int i = 1; i < n->input_layer->num_input_layers + 1; i++)
     new_input_layers[i] = n->input_layer->input_layers[i-1];
   free(n->input_layer->input_layers);
-
   n->input_layer->input_layers = new_input_layers;
   n->input_layer->num_input_layers++;
   
+  /* Allocate tensor memory and count the number of parameters in the network */
   size_t param_idx = 0;
   for(int i = 0; i < n->depth; i++){
     Layer *l = n->layers[i];
@@ -36,10 +40,10 @@ static void initialize_network(Network *n){
     sk_layer_allocate(l, n->is_recurrent);
     param_idx += l->num_params;
   }
-
   n->params     = create_tensor(SIEKNET_CPU, param_idx);
   n->param_grad = create_tensor(SIEKNET_CPU, param_idx);
 
+  /* Initialize layer weights and variables */
   for(int i = 0; i < n->depth; i++)
     sk_layer_initialize(n->layers[i], n->params);
   
@@ -94,8 +98,9 @@ void sk_forward(Network *n, float *x){
     }
   }
 
-  for(int i = 0; i < n->depth; i++)
-    n->layers[i]->forward(n->layers[i], n->params, n->t);
+  for(int i = 0; i < n->depth; i++){
+    n->layers[i]->forward(n->layers[i], n->t);
+  }
 }
 
 float sk_cost(Network *n, float *y){

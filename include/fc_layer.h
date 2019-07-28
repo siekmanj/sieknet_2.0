@@ -5,7 +5,7 @@
 
 void sk_fc_layer_allocate(Layer *, int);
 
-void sk_fc_layer_forward(Layer *, const Tensor, size_t);
+void sk_fc_layer_forward(Layer *, size_t);
 
 void sk_fc_layer_backward(Layer *, const Tensor, size_t);
 

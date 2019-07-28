@@ -42,8 +42,9 @@ typedef struct layer_{
   SK_LOGISTIC logistic;
   SK_INIT_TYPE weight_initialization;
 
-  void (*forward)(struct layer_*, const Tensor, size_t);
-  void (*backward)(struct layer_*, const Tensor, size_t);
+  void (*forward)(struct layer_*, size_t);
+  void (*backward)(struct layer_*, size_t);
+  void (*nonlinearity)(Tensor);
 
 } Layer;
 

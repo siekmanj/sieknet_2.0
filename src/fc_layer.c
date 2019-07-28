@@ -6,90 +6,56 @@
 #include <tensor.h>
 #include <layer.h>
 
-/* 
- * For a layer of size n,
- * l->param_idx
- *     |
- *     V
- * ... b1 b2 ... bn, n0_w0_l0 n1_w1_l0 ... 
- */
-void sk_fc_layer_forward(Layer *l, const Tensor p, size_t t){
-  size_t param_idx = l->param_idx;
+typedef struct fc_data_{
+  Tensor bias;
+  Tensor *weights;
+} FC_layer_data;
 
-  Tensor b = p;
-  b.data_offset = param_idx;
-  b.dims        = &l->size;
-  b.n           = 1;
+void sk_fc_layer_forward(Layer *l, size_t t){
+  FC_layer_data *d = (FC_layer_data*)l->data;
 
-  Tensor y;
-  if(l->output.n > 1)
-    y = get_subtensor(l->output, t);
-  else
-    y = l->output;
+  Tensor b = d->bias;
+  Tensor y = l->output.n == 1 ? l->output : get_subtensor(l->output, t);
 
-#if 0
+  /* Zero the output tensor for this timestep */
+  tensor_zero(y);
+
   /* Begin by elementwise-adding the bias to the output of this layer */
-  tensor_elementwise_add(b, 0,  // Operand 1, no offset, axis 0
-                         y, 0,  // Operand 2, no offset, axis 0
-                         y, 0); // Destination tensor
-
-#endif
-
-  param_idx += l->size;
+  tensor_elementwise_add(b, y, y);
 
   /* Loop through all the input layers and do a matrix mult */
   for(int i = 0; i < l->num_input_layers; i++){
-
     Layer *in = l->input_layers[i];
-
-    /* Create a new tensor from the network's parameter tensor with the correct shape */
-    size_t w_dims[] = {l->size, in->size};
-    Tensor w = p;
-    w.data_offset = param_idx;
-    w.dims        = w_dims;
-    w.n           = 2;
+    Tensor w = d->weights[i];
 
     /* Get the subtensor for this timestep */
-    Tensor x;
+    Tensor x = in->rank >= l->rank ? in->loutput : in->output;
+    x        = x.n == 1 ? x : get_subtensor(x, t);
 
-    if(in->rank >= l->rank)
-      x = in->loutput;
-
-    else if(l->input_layers[i]->output.n == 1)
-      x = in->output;
-
-    else
-      x = get_subtensor(in->output, t);
-
-#if 1
-    printf("W:\n");
-    tensor_print(w);
-    printf("X:\n");
-    tensor_print(x);
-    printf("Y:\n");
-    tensor_print(y);
-#endif
+    /* Matrix multiplication between weights and input */
     tensor_mmult(w, x, y);
   }
+  //l->nonlinearity(y);
+  tensor_print(y);
 }
 
 void sk_fc_layer_backward(Layer *l, const Tensor p, size_t t){
   SK_ERROR("Not implemented!");
 }
 
+void sk_fc_layer_parse(Layer *l, const char *identifier, char *remaining){
+
+}
+
 void sk_fc_layer_allocate(Layer *l, int recurrent){
   size_t num_inputs = l->num_params = 0;
   size_t params_per_neuron = 1;
 
-  printf("allocating\n");
   for(int i = 0; i < l->num_input_layers; i++){
     Layer *in = l->input_layers[i];
-    printf("%lu += %lu\n", l->num_params, params_per_neuron * (l->size + 1) * in->size);
-    l->num_params += params_per_neuron * (l->size + 1) * in->size;
-
+    l->num_params += params_per_neuron * (l->size * in->size) + l->size;
     num_inputs += in->size;
   }
-  printf("done allocating\n");
 
   if(recurrent){
     l->output         = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
@@ -100,29 +66,35 @@ void sk_fc_layer_allocate(Layer *l, int recurrent){
     l->gradient       = create_tensor(SIEKNET_CPU, l->size);
     l->input_gradient = create_tensor(SIEKNET_CPU, num_inputs);
   }
-  l->loutput = create_tensor(SIEKNET_CPU, l->size);
-  l->forward = sk_fc_layer_forward;
+  l->loutput  = create_tensor(SIEKNET_CPU, l->size);
+  l->forward  = sk_fc_layer_forward;
   l->backward = sk_fc_layer_backward;
+  l->data     = (void *)calloc(1, sizeof(FC_layer_data));
+  FC_layer_data *d = (FC_layer_data *)l->data;
+  d->weights = calloc(l->num_input_layers, sizeof(Tensor));
 }
 
 void sk_fc_layer_initialize(Layer *l, Tensor p){
+
+  /* 
+   * Perform weight initialization according to the desired scheme. 
+   * Default is Xavier initialization.
+   */
   size_t input_dim = 0;
   for(int i = 0; i < l->num_input_layers; i++)
     input_dim += l->input_layers[i]->size;
-
   switch(l->weight_initialization){
     case SK_XAVIER:{
       float *theta = &((float*)p.data)[p.data_offset + l->param_idx];
-      for(int i = 0; i < l->num_params; i++)
+      for(int i = 0; i < l->num_params; i++){
         theta[i] = normal(0, 1 / sqrt(input_dim));
-
+      }
       break;
     }
     case SK_HE:{
       float *theta = &((float*)p.data)[p.data_offset + l->param_idx];
       for(int i = 0; i < l->num_params; i++)
         theta[i] = normal(0, sqrt(2 / input_dim));
-
       break;
     }
     default:{
@@ -130,5 +102,29 @@ void sk_fc_layer_initialize(Layer *l, Tensor p){
       break;
     }
   }
+
+  /*
+   * Set up weights and biases of this layer. We will use an internal struct
+   * which is not used anywhere outside of this file (FC_layer_data). This 
+   * is used to manage the forward and backward passes for fully connected
+   * layers.
+   */
+  size_t param_offset = l->param_idx;
+  FC_layer_data *d = (FC_layer_data *)l->data;
+
+  d->bias             = create_tensor(SIEKNET_CPU, l->size);
+  free(d->bias.data);
+  d->bias.data        = p.data;
+  d->bias.data_offset = param_offset;
+  param_offset        += l->size;
+
+  for(int i = 0; i < l->num_input_layers; i++){
+    d->weights[i]             = create_tensor(SIEKNET_CPU, l->size, l->input_layers[i]->size);
+    free(d->weights[i].data);
+    d->weights[i].data        = p.data;
+    d->weights[i].data_offset = param_offset;
+    param_offset              += l->size * l->input_layers[i]->size;
+  }
+  
 }
 

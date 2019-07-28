@@ -14,6 +14,19 @@ int sk_contains_layer(Layer **arr, Layer *comp, size_t arrlen){
   return 0;
 }
 
+void sk_layer_parse(Layer *l, char *identifier, char **remaining){
+  switch(l->layertype){
+    case SK_FF:
+    case SK_RC:{
+      sk_fc_layer_parse(l, identifier, remaining);
+      break;
+    }
+    default:{
+      SK_ERROR("Parse not implemented for this layer type.");
+    }
+  }
+}
+
 void sk_layer_allocate(Layer *l, int recurrent){
   switch(l->layertype){
     case SK_FF:

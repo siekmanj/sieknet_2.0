@@ -11,10 +11,15 @@ const char* test2= "model/three.sk";
 int main(){
   srand(0);
 #if 0
-  Tensor a = create_tensor(SIEKNET_CPU, 4, 3);
+  Tensor a = create_tensor(SIEKNET_CPU, 4);
+  Tensor b = create_tensor(SIEKNET_CPU, 4);
+  Tensor c = create_tensor(SIEKNET_CPU, 4);
   tensor_fill_random(a);
-  Tensor b = get_subtensor(a, 4, 2);
+  tensor_fill_random(b);
+  tensor_print(a);
   tensor_print(b);
+  tensor_elementwise_add(a, b, c);
+  tensor_print(c);
 #endif
 #if 0
   Tensor a = create_tensor(SIEKNET_CPU, 4, 3);
@@ -36,7 +41,7 @@ int main(){
   tensor_transpose(a, 0, 2);
   tensor_print(a);
 #endif
-#if 1
+#if 0
 
   Tensor a = create_tensor(SIEKNET_CPU, 2, 3);
   tensor_fill_random(a);
@@ -63,8 +68,8 @@ int main(){
     printf("x[%d]: %f\n", i, x[i]);
   }
   sk_forward(&n, x);
-  /*
   sk_forward(&n, x);
+  /*
   sk_forward(&n, x);
   printf("two:\n");
   Network two = create_network(test1);

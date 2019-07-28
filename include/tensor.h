@@ -39,16 +39,14 @@ float tensor_reduce_dot(const Tensor, const Tensor);
 void tensor_mmult(const Tensor, const Tensor, Tensor);
 
 
-void tensor_elementwise_add(const Tensor, size_t,
-                            const Tensor, size_t,
-                            Tensor,       size_t);
+void tensor_elementwise_add(const Tensor, const Tensor, Tensor);
 
 void tensor_elementwise_mult(const Tensor, size_t,
                              const Tensor, size_t,
                              Tensor,       size_t);
 
 void tensor_fill_random(Tensor);
-void tensor_zero(Tensor, size_t, size_t);
+void tensor_zero(Tensor);
 void tensor_print(Tensor);
 
 #endif
