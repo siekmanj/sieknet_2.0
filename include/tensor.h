@@ -47,6 +47,17 @@ void tensor_elementwise_mult(const Tensor, size_t,
 
 void tensor_fill_random(Tensor);
 void tensor_zero(Tensor);
+void tensor_copy(Tensor, Tensor);
+
+void tensor_sigmoid(Tensor);
+void tensor_tanh(Tensor);
+void tensor_relu(Tensor);
+void tensor_selu(Tensor);
+void tensor_softmax(Tensor);
+
+float tensor_quadratic_cost(Tensor, Tensor, Tensor);
+float tensor_cross_entropy_cost(Tensor, Tensor, Tensor);
+
 void tensor_print(Tensor);
 
 #endif

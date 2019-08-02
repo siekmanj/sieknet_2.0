@@ -9,7 +9,7 @@
 
 static const char *sk_logistics[]           = {"sigmoid", "tanh", "relu", "linear", "softmax"};
 static const char *sk_layertypes[]          = {"feedforward", "recurrent", "lstm", "gru", "attention"};
-static const char *sk_layer_identifiers[]   = {"logistic", "size", "type", "input", "name", "recurrent_input"};
+static const char *sk_layer_identifiers[]   = {"logistic", "size", "type", "input", "name"};
 static const char *sk_network_identifiers[] = {"input_dimension", "name", "input", "output"};
 
 typedef enum sk_token_type {NETWORK_ROOT, LAYER_ROOT, IDENTIFIER, VALUE} TokenType;
@@ -32,11 +32,11 @@ static char *string_from_file(const char *filename){
 }
 
 static int is_filler(char c){
-  if(c < 48 && (c != 10 && c != 32))
+  if(c < 48 && (c != '\n' && c != ' '))
     return 1;
   if(c > 57 && c < 65)
     return 1;
-  if(c > 90 && c < 97 && c != 95)
+  if(c > 90 && c < 97 && c != '_'/* && c != '[' && c != ']'*/)
     return 1;
   if(c > 123)
     return 1;
@@ -98,6 +98,9 @@ static size_t layers_in_cfg(const char *str){
 }
 
 static void parse_layer_attribute(Layer *l, char *identifier, char **remaining){
+#if 0
+  sk_parse_layer_attribute(l, identifier, remaining);
+#else
   char buff[BUFFSIZE];
   memset(buff, '\0', BUFFSIZE);
   int offset;
@@ -185,6 +188,7 @@ static void parse_layer_attribute(Layer *l, char *identifier, char **remaining){
       SK_ERROR("unrecognized identifier");
   }else
     SK_ERROR("unexpected EOF while reading file.");
+#endif
 }
 
 static void parse_network_attribute(Network *n, char *identifier, char **remaining){

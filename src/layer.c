@@ -18,7 +18,7 @@ void sk_layer_parse(Layer *l, char *identifier, char **remaining){
   switch(l->layertype){
     case SK_FF:
     case SK_RC:{
-      sk_fc_layer_parse(l, identifier, remaining);
+      sk_fc_layer_parse_attribute(l, identifier, remaining);
       break;
     }
     default:{
@@ -27,11 +27,11 @@ void sk_layer_parse(Layer *l, char *identifier, char **remaining){
   }
 }
 
-void sk_layer_allocate(Layer *l, int recurrent){
+void sk_layer_allocate(Layer *l){
   switch(l->layertype){
     case SK_FF:
     case SK_RC:{
-      sk_fc_layer_allocate(l, recurrent);
+      sk_fc_layer_allocate(l);
       break;
     }
     case SK_LSTM:{
@@ -69,6 +69,29 @@ void sk_layer_initialize(Layer *l, Tensor p){
       break;
     }
   }
-
 }
 
+void (*sk_logistic_to_fn(SK_LOGISTIC l))(Tensor t){
+  switch(l){
+    case SK_SIGMOID:{
+      return tensor_sigmoid;
+      break;
+    }
+    case SK_TANH:{
+      return tensor_tanh;
+      break;
+    }
+    case SK_RELU:{
+      return tensor_relu;
+      break;
+    }
+    case SK_SOFTMAX:{
+      return tensor_softmax;
+      break;
+    }
+    default:{
+      SK_ERROR("Logistic function not implemented.");
+      break;
+    }
+  }
+}

@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
 
 #include <tensor.h>
 #include <util.h>
@@ -39,11 +40,54 @@ void tensor_zero(Tensor t){
   }
 }
 
+void tensor_copy(Tensor src, Tensor dest){
+  if(src.device != dest.device)
+    SK_ERROR("Tensors must be on the same device.");
+
+  if(src.n != dest.n)
+    SK_ERROR("Tensors must have same number of dimensions.");
+
+  for(int i = 0; i < src.n; i++)
+    if(src.dims[i] != dest.dims[i])
+      SK_ERROR("Tensor dimensions must match! Mismatch on dimension %d: %lu vs %lu\n", i, src.dims[i], dest.dims[i]);
+  
+  size_t len = 1;
+  for(int i = 0; i < src.n; i++)
+    len *= src.dims[i];
+
+  if(src.device == SIEKNET_CPU){
+    float *src_mem  = &((float *)src.data)[src.data_offset];
+    float *dest_mem = &((float *)dest.data)[dest.data_offset];
+
+    for(int i = 0; i < len; i++)
+      dest_mem[i] = src_mem[i];
+    
+  }else{
+    SK_ERROR("Not implemented.");
+  }
+}
+
 void tensor_sigmoid(Tensor t){
+  if(t.n > 1)
+    SK_ERROR("Logistics not supported for non-1d tensors.");
+
   if(t.device == SIEKNET_CPU){
+    float *z_mem  = &((float *)t.data)[t.data_offset];
+    for(int i = 0; i < t.dims[0]; i++)
+      z_mem[i] = 1 / (1 + exp(-z_mem[i]));
 
   }else if(t.device == SIEKNET_GPU){
-    SK_ERROR("Tensor zeroing not implemented on GPU.");
+    SK_ERROR("Not implemented.");
+  }else{
+    SK_ERROR("Invalid device.");
+  }
+}
+
+void tensor_dsigmoid(Tensor a, Tensor d){
+  if(a.device == SIEKNET_CPU){
+
+  }else if(a.device == SIEKNET_GPU){
+    SK_ERROR("Not implemented.");
   }else{
     SK_ERROR("Invalid device.");
   }
@@ -53,7 +97,16 @@ void tensor_tanh(Tensor t){
   if(t.device == SIEKNET_CPU){
 
   }else if(t.device == SIEKNET_GPU){
-    SK_ERROR("Tensor zeroing not implemented on GPU.");
+    SK_ERROR("Not implemented.");
+  }else{
+    SK_ERROR("Invalid device.");
+  }
+}
+void tensor_dtanh(Tensor a, Tensor d){
+  if(a.device == SIEKNET_CPU){
+
+  }else if(a.device == SIEKNET_GPU){
+    SK_ERROR("Not implemented.");
   }else{
     SK_ERROR("Invalid device.");
   }
@@ -63,7 +116,17 @@ void tensor_relu(Tensor t){
   if(t.device == SIEKNET_CPU){
 
   }else if(t.device == SIEKNET_GPU){
-    SK_ERROR("Tensor zeroing not implemented on GPU.");
+    SK_ERROR("Not implemented.");
+  }else{
+    SK_ERROR("Invalid device.");
+  }
+}
+
+void tensor_drelu(Tensor a, Tensor d){
+  if(a.device == SIEKNET_CPU){
+
+  }else if(a.device == SIEKNET_GPU){
+    SK_ERROR("Not implemented.");
   }else{
     SK_ERROR("Invalid device.");
   }
@@ -73,7 +136,17 @@ void tensor_selu(Tensor t){
   if(t.device == SIEKNET_CPU){
 
   }else if(t.device == SIEKNET_GPU){
-    SK_ERROR("Tensor zeroing not implemented on GPU.");
+    SK_ERROR("Not implemented.");
+  }else{
+    SK_ERROR("Invalid device.");
+  }
+}
+
+void tensor_dselu(Tensor a, Tensor d){
+  if(a.device == SIEKNET_CPU){
+
+  }else if(a.device == SIEKNET_GPU){
+    SK_ERROR("Not implemented.");
   }else{
     SK_ERROR("Invalid device.");
   }
@@ -83,10 +156,86 @@ void tensor_softmax(Tensor t){
   if(t.device == SIEKNET_CPU){
 
   }else if(t.device == SIEKNET_GPU){
-    SK_ERROR("Tensor zeroing not implemented on GPU.");
+    SK_ERROR("Not implemented.");
   }else{
     SK_ERROR("Invalid device.");
   }
+}
+
+void tensor_dsoftmax(Tensor a, Tensor d){
+  if(a.device == SIEKNET_CPU){
+
+  }else if(a.device == SIEKNET_GPU){
+    SK_ERROR("Not implemented.");
+  }else{
+    SK_ERROR("Invalid device.");
+  }
+}
+
+float tensor_quadratic_cost(Tensor o, Tensor y, Tensor grad){
+  if(y.device != o.device || y.device != grad.device)
+    SK_ERROR("Devices must match.");
+
+  if(y.n != 1 || o.n != 1 || grad.n != 1)
+    SK_ERROR("All tensor dimensions must be 1. Got %lu, %lu, %lu.", y.n, o.n, grad.n);
+
+  if(y.dims[0] != o.dims[0] || y.dims[0] != grad.dims[0])
+    SK_ERROR("All tensors must be of the same length, got lengths %lu, %lu, %lu", y.dims[0], o.dims[0], grad.dims[0]);
+
+  float cost = 0;
+  if(y.device == SIEKNET_CPU){
+
+    float *o_mem = &((float *)o.data)[o.data_offset];
+    float *y_mem = &((float *)y.data)[y.data_offset];
+    float *g_mem = &((float *)grad.data)[grad.data_offset];
+    for(int i = 0; i < y.dims[0]; i++){
+      float o_i = o_mem[i * o.strides[0]];
+      float y_i = y_mem[i * y.strides[0]];
+
+      cost += (o_i - y_i) * (o_i - y_i);
+      g_mem[i * grad.strides[0]] = o_i - y_i;
+    }
+    return cost;
+  }else if(y.device == SIEKNET_GPU){
+    SK_ERROR("Tensor cost not implemented on GPU.");
+  }else{
+    SK_ERROR("Invalid device.");
+  }
+  
+}
+
+float tensor_cross_entropy_cost(Tensor y, Tensor label, Tensor grad){
+  if(y.device != label.device || y.device != grad.device)
+    SK_ERROR("Devices must match.");
+
+  if(y.n != 1 || label.n != 1 || grad.n != 1)
+    SK_ERROR("All tensor dimensions must be 1. Got %lu, %lu, %lu.", y.n, label.n, grad.n);
+
+  if(y.dims[0] != label.dims[0] || y.dims[0] != grad.dims[0])
+    SK_ERROR("All tensors must be of the same length, got lengths %lu, %lu, %lu", y.dims[0], label.dims[0], grad.dims[0]);
+
+  float cost = 0;
+  if(y.device == SIEKNET_CPU){
+
+    float *y_mem = &((float *)y.data)[y.data_offset];
+    float *l_mem = &((float *)label.data)[label.data_offset];
+    float *g_mem = &((float *)grad.data)[grad.data_offset];
+    for(int i = 0; i < y.dims[0]; i++){
+      /*
+      float y_i = y_mem[i * y.strides[0]];
+      float l_i = l_mem[i * label.strides[0]];
+
+      cost += (y_i - l_i) * (y_i - l_i);
+      g_mem[i * grad.strides[0]] = y_i - l_i;
+      */
+    }
+    return cost;
+  }else if(y.device == SIEKNET_GPU){
+    SK_ERROR("Tensor cost not implemented on GPU.");
+  }else{
+    SK_ERROR("Invalid device.");
+  }
+
 }
 
 void tensor_transpose(Tensor t, size_t dim1, size_t dim2){
