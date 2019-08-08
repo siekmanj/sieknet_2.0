@@ -8,23 +8,24 @@
 
 static void initialize_network(Network *n){
   /* Use a dummy layer to send input to the network */
-  Layer *data = (Layer *)malloc(sizeof(Layer));
-  data->size       = n->input_dimension;
-  data->rank       = -1;
-  data->name       = "DATA_IN";
+  Layer *data            = (Layer *)malloc(sizeof(Layer));
+  data->size             = n->input_dimension;
+  data->rank             = -1;
+  data->name             = "DATA_IN";
   data->params_per_input = 0;
-
-  data->output     = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, n->input_dimension);
+  data->output           = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, n->input_dimension);
+  n->data_layer = data;
 
   /*
    * Take the current input layer and add our dummy layer
    * as an input
    */
-  n->data_layer = data;
-  Layer **new_input_layers = (Layer **)malloc((n->input_layer->num_input_layers + 1) * sizeof(Layer *));
-  new_input_layers[0] = data;
-  for(int i = 1; i < n->input_layer->num_input_layers + 1; i++)
+  size_t num_inputs        = n->input_layer->num_input_layers;
+  Layer **new_input_layers = (Layer **)malloc((num_inputs + 1) * sizeof(Layer *));
+  new_input_layers[0]      = data;
+  for(int i = 1; i < num_inputs + 1; i++)
     new_input_layers[i] = n->input_layer->input_layers[i-1];
+
   free(n->input_layer->input_layers);
   n->input_layer->input_layers = new_input_layers;
   n->input_layer->num_input_layers++;
@@ -33,7 +34,7 @@ static void initialize_network(Network *n){
   size_t param_idx = 0;
   for(int i = 0; i < n->depth; i++){
     Layer *l = n->layers[i];
-    l->param_idx  = param_idx;
+    l->param_idx = param_idx;
     sk_layer_allocate(l);
     param_idx += l->num_params;
   }
@@ -42,10 +43,11 @@ static void initialize_network(Network *n){
 
   /* Initialize layer weights and variables */
   for(int i = 0; i < n->depth; i++)
-    sk_layer_initialize(n->layers[i], n->params);
+    sk_layer_initialize(n->layers[i], n->params, n->param_grad);
 
   n->t = 0;
   n->trainable = 1;
+  n->num_params = param_idx;
 }
 
 Layer *sk_layer_from_name(Network *n, const char *name){
@@ -83,8 +85,15 @@ static void sk_run_inference(Network *n){
   /* 
    * Run the forward pass for each individual layer.
    */
-  for(int i = 0; i < n->depth; i++)
-    n->layers[i]->forward(n->layers[i], n->t);
+  n->data_layer->output.dims[0] = n->t + 1;
+  for(int i = 0; i < n->depth; i++){
+    n->layers[i]->output.dims[0]         = n->t + 1;   // Increase the time dimension of this layer's output
+    n->layers[i]->gradient.dims[0]       = n->t + 1;
+    for(int j = 0; j < n->layers[i]->num_input_layers; j++)
+      n->layers[i]->input_gradient[j].dims[0] = n->t + 1;
+
+    n->layers[i]->forward(n->layers[i], n->t); // Run the forward pass for this layer
+  }
 
   /* 
    * The below is a hack and is not guaranteed to work for transposed tensors - fix tensor_copy asap
@@ -109,13 +118,13 @@ void sk_forward(Network *n, Tensor x){
     SK_ERROR("Expected input dimension %lu but got %lu.", n->input_dimension, input_dimension);
 
   if(x.n == 2){
-    Tensor tmp = n->data_layer->output;       // Temporarily store the info in the data layer elsewhere.
-    n->data_layer->output = x;                // Replace the data layer tensor with the input tensor.
     for(int t = 0; t < sequence_length; t++){
-      n->t = n->trainable ? n->t + 1 : 0;     // If the network is in trainable mode, increment t.
+      Tensor input = get_subtensor(n->data_layer->output, n->t);
+      Tensor x_t   = get_subtensor(x, n->t);
+      tensor_copy(x_t, input);
       sk_run_inference(n);                    // Run inference for this time step.
+      n->t = n->trainable ? n->t + 1 : 0;     // If the network is in trainable mode, increment t.
     }
-    n->data_layer->output = tmp;              // Restore the data layer
   }
   else if(x.n == 1){
     /* 
@@ -124,8 +133,8 @@ void sk_forward(Network *n, Tensor x){
     Tensor input = get_subtensor(n->data_layer->output, n->t);
     tensor_copy(x, input);
 
-    n->t = n->trainable ? n->t + 1 : 0;          // If the network is in trainable mode, increment t.
     sk_run_inference(n);                         // Run inference for this time step.
+    n->t = n->trainable ? n->t + 1 : 0;          // If the network is in trainable mode, increment t.
   }
 }
 
@@ -157,19 +166,22 @@ float sk_cost(Network *n, Layer *l, Tensor y, SK_COST_FN cost){
   }
 
   if(y.n == 1){
-    Tensor grad   = get_subtensor(l->gradient, n->t);
-    Tensor output = get_subtensor(l->output, n->t);
+    Tensor grad   = get_subtensor(l->gradient, n->t-1);
+    Tensor output = get_subtensor(l->output, n->t-1);
     return cost_function(output, y, grad);
   }
   if(y.n == 2){
     if(y.dims[0] != n->t)
       SK_ERROR("Network timesteps are %lu, but label tensor is a sequence of length %lu. Expected these to match. Aborting.", n->t, y.dims[0]);
 
+    //l->gradient.dims[0]       = y.dims[0]; // Match label and cost matrix time dimensions
+    //l->input_gradient.dims[0] = y.dims[0]; // Match label 
+
     float sum_cost = 0;
     for(int t = 0; t < y.dims[0]; t++){
-      Tensor grad   = get_subtensor(l->gradient, t);
       Tensor output = get_subtensor(l->output, t);
       Tensor label  = get_subtensor(y, t);
+      Tensor grad   = get_subtensor(l->gradient, t);
       sum_cost += cost_function(output, label, grad);
     }
     return sum_cost;
@@ -178,7 +190,9 @@ float sk_cost(Network *n, Layer *l, Tensor y, SK_COST_FN cost){
 }
 
 void sk_backward(Network *n){
-
+  for(int i = n->depth-1; i >= 0; i--){
+    n->layers[i]->backward(n->layers[i]);
+  }
+  n->t = 0;
 }
-
 

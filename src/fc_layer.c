@@ -9,13 +9,19 @@
 typedef struct fc_data_{
   Tensor bias;
   Tensor *weights;
+  Tensor bias_grad;
+  Tensor *weight_grad;
+  Tensor intermediate_grad;
 } FC_layer_data;
 
 void sk_fc_layer_forward(Layer *l, size_t t){
   FC_layer_data *d = (FC_layer_data*)l->data;
 
   Tensor b = d->bias;
-  Tensor y = l->output.n == 1 ? l->output : get_subtensor(l->output, t);
+  Tensor y = get_subtensor(l->output, t);
+  Tensor dy = get_subtensor(d->intermediate_grad, t);
+
+  d->intermediate_grad.dims[0] = t + 1;
 
   /* Zero the output tensor for this timestep */
   tensor_zero(y);
@@ -35,11 +41,38 @@ void sk_fc_layer_forward(Layer *l, size_t t){
     /* Matrix multiplication between weights and input */
     tensor_mmult(w, x, y);
   }
-  l->nonlinearity(y);
+  l->nonlinearity(y, dy);
 }
 
-void sk_fc_layer_backward(Layer *l, size_t t){
-  SK_ERROR("Not implemented!");
+void sk_fc_layer_backward(Layer *l){
+  FC_layer_data *d = (FC_layer_data*)l->data;
+
+  Tensor o = l->gradient;
+  Tensor g = d->intermediate_grad;
+  tensor_elementwise_mul(o, g, g); 
+
+  for(int i = 0; i < l->num_input_layers; i++){
+    Layer *in = l->input_layers[i];
+
+    Tensor w  = d->weights[i];
+    Tensor x  = in->output;
+    Tensor dx = in->gradient;
+    Tensor dw = d->weight_grad[i];
+
+    /* Compute weight gradients */
+    tensor_transpose(g, 0, 1);
+    tensor_mmult(g, x, dw); // dW = g^T * x
+    tensor_transpose(g, 0, 1);
+
+    /* Compute input gradients if needed */
+    if(dx.data)
+      tensor_mmult(g, w, dx); // dX = g * w
+
+    if(dx.data)
+      tensor_print(dx);
+  }
+  /* Compute bias gradients */
+  //tensor_copy(g, b);
 }
 
 static const char *sk_fc_layer_identifiers[]   = {"logistic", "size", "type", "input", "name"};
@@ -136,19 +169,18 @@ void sk_fc_layer_parse_attribute(Layer *l, const char *identifier, char **remain
 #endif
 }
 
-void sk_fc_layer_allocate(Layer *l, int recurrent){
-  size_t num_inputs = l->num_params = 0;
-  size_t params_per_neuron = 1;
+void sk_fc_layer_allocate(Layer *l){
+  l->num_params = 0;
 
+  l->input_gradient = calloc(l->num_input_layers, sizeof(Tensor));
   for(int i = 0; i < l->num_input_layers; i++){
     Layer *in = l->input_layers[i];
-    l->num_params += params_per_neuron * (l->size * in->size) + l->size;
-    num_inputs += in->size;
+    l->num_params += (l->size * in->size) + l->size;
+    l->input_gradient[i] = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->input_layers[i]->size);
   }
 
   l->output         = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
   l->gradient       = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
-  l->input_gradient = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, num_inputs);
 
   l->loutput      = create_tensor(SIEKNET_CPU, l->size);
 
@@ -156,12 +188,14 @@ void sk_fc_layer_allocate(Layer *l, int recurrent){
   l->backward     = sk_fc_layer_backward;
   l->nonlinearity = sk_logistic_to_fn(l->logistic);
 
-  l->data     = (void *)calloc(1, sizeof(FC_layer_data));
-  FC_layer_data *d = (FC_layer_data *)l->data;
-  d->weights = calloc(l->num_input_layers, sizeof(Tensor));
+  FC_layer_data *d     = calloc(1, sizeof(FC_layer_data));
+  d->weights           = calloc(l->num_input_layers, sizeof(Tensor));
+  d->weight_grad       = calloc(l->num_input_layers, sizeof(Tensor));
+  d->intermediate_grad = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
+  l->data = d;
 }
 
-void sk_fc_layer_initialize(Layer *l, Tensor p){
+void sk_fc_layer_initialize(Layer *l, Tensor p, Tensor g){
   /* 
    * Perform weight initialization according to the desired scheme. 
    * Default is Xavier initialization.
@@ -202,14 +236,30 @@ void sk_fc_layer_initialize(Layer *l, Tensor p){
   free(d->bias.data);
   d->bias.data        = p.data;
   d->bias.data_offset = param_offset;
-  param_offset        += l->size;
+
+  d->bias_grad             = create_tensor(SIEKNET_CPU, l->size);
+  free(d->bias_grad.data);
+  d->bias_grad.data        = g.data;
+  d->bias_grad.data_offset = param_offset;
+
+  param_offset += l->size;
 
   for(int i = 0; i < l->num_input_layers; i++){
     d->weights[i]             = create_tensor(SIEKNET_CPU, l->size, l->input_layers[i]->size);
     free(d->weights[i].data);
     d->weights[i].data        = p.data;
     d->weights[i].data_offset = param_offset;
-    param_offset              += l->size * l->input_layers[i]->size;
+
+    d->weight_grad[i]             = create_tensor(SIEKNET_CPU, l->size, l->input_layers[i]->size);
+    free(d->weight_grad[i].data);
+    d->weight_grad[i].data        = g.data;
+    d->weight_grad[i].data_offset = param_offset;
+
+    param_offset += l->size * l->input_layers[i]->size;
   }
+
+  l->output.dims[0] = 1;
+  l->gradient.dims[0] = 1;
+
 }
 

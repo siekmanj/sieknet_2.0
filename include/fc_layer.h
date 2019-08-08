@@ -7,9 +7,9 @@ void sk_fc_layer_allocate(Layer *);
 
 void sk_fc_layer_forward(Layer *, size_t);
 
-void sk_fc_layer_backward(Layer *, const Tensor, size_t);
+void sk_fc_layer_backward(Layer *, const Tensor);
 
-void sk_fc_layer_initialize(Layer *, Tensor);
+void sk_fc_layer_initialize(Layer *, Tensor, Tensor);
 
 void sk_fc_layer_parse_attribute(Layer *, const char *, char **);
 

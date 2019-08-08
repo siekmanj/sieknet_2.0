@@ -49,11 +49,11 @@ void sk_layer_allocate(Layer *l){
   }
 }
 
-void sk_layer_initialize(Layer *l, Tensor p){
+void sk_layer_initialize(Layer *l, Tensor p, Tensor g){
   switch(l->layertype){
     case SK_FF:
     case SK_RC:{
-      sk_fc_layer_initialize(l, p);
+      sk_fc_layer_initialize(l, p, g);
       break;
     }
     case SK_LSTM:{
@@ -71,22 +71,22 @@ void sk_layer_initialize(Layer *l, Tensor p){
   }
 }
 
-void (*sk_logistic_to_fn(SK_LOGISTIC l))(Tensor t){
+void (*sk_logistic_to_fn(SK_LOGISTIC l))(Tensor, Tensor){
   switch(l){
     case SK_SIGMOID:{
-      return tensor_sigmoid;
+      return tensor_sigmoid_precompute;
       break;
     }
     case SK_TANH:{
-      return tensor_tanh;
+      return tensor_tanh_precompute;
       break;
     }
     case SK_RELU:{
-      return tensor_relu;
+      return tensor_relu_precompute;
       break;
     }
     case SK_SOFTMAX:{
-      return tensor_softmax;
+      return tensor_softmax_precompute;
       break;
     }
     default:{

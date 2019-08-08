@@ -33,7 +33,7 @@ typedef struct layer_{
   int rank;
   int visited;
 
-  Tensor input_gradient;
+  Tensor *input_gradient;
   Tensor gradient;
   Tensor output;
   Tensor loutput;
@@ -45,15 +45,15 @@ typedef struct layer_{
   SK_INIT_TYPE weight_initialization;
 
   void (*forward)(struct layer_*, size_t);
-  void (*backward)(struct layer_*, size_t);
-  void (*nonlinearity)(Tensor);
+  void (*backward)(struct layer_*);
+  void (*nonlinearity)(Tensor, Tensor);
 
 } Layer;
 
 int contains_layer(Layer **, Layer *, size_t);
 
 void sk_layer_allocate(Layer *);
-void sk_layer_initialize(Layer *, Tensor);
+void sk_layer_initialize(Layer *, Tensor, Tensor);
 
-void (*sk_logistic_to_fn(SK_LOGISTIC l))(Tensor t);
+void (*sk_logistic_to_fn(SK_LOGISTIC))(Tensor, Tensor);
 #endif
