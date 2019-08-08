@@ -52,8 +52,9 @@ static void initialize_network(Network *n){
 
 Layer *sk_layer_from_name(Network *n, const char *name){
   for(int i = 0; i < n->depth; i++){
-    if(!strcmp(n->layers[i]->name, name))
+    if(!strcmp(n->layers[i]->name, name)){
       return n->layers[i];
+    }
   }
   return NULL;
 }
