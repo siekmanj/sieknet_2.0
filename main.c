@@ -14,7 +14,7 @@ int main(){
     printf("TRANSPOSE_TEST: ");
     Tensor a = create_tensor(SIEKNET_CPU, 15, 16);
     Tensor b = create_tensor(SIEKNET_CPU, 15, 16);
-    tensor_fill_random(a);
+    tensor_fill_random(a, 0, 1);
     tensor_copy(a, b);
     tensor_transpose(b, 1, 0);
     float *a_raw = &((float*)a.data)[a.data_offset];
@@ -39,8 +39,8 @@ int main(){
     Tensor a = create_tensor(SIEKNET_CPU, 4, 5, 6);
     Tensor b = create_tensor(SIEKNET_CPU, 4, 5, 6);
     Tensor c = create_tensor(SIEKNET_CPU, 4, 5, 6);
-    tensor_fill_random(a);
-    tensor_fill_random(b);
+    tensor_fill_random(a, 0, 1);
+    tensor_fill_random(b, 0, 1);
     float *a_raw = &((float*)a.data)[a.data_offset];
     float *b_raw = &((float*)b.data)[b.data_offset];
     float *c_raw = &((float*)c.data)[c.data_offset];
@@ -72,8 +72,8 @@ int main(){
     Tensor a = create_tensor(SIEKNET_CPU, 4, 5, 6);
     Tensor b = create_tensor(SIEKNET_CPU, 4, 5, 6);
     Tensor c = create_tensor(SIEKNET_CPU, 4, 5, 6);
-    tensor_fill_random(a);
-    tensor_fill_random(b);
+    tensor_fill_random(a, 0, 1);
+    tensor_fill_random(b, 0, 1);
     float *a_raw = &((float*)a.data)[a.data_offset];
     float *b_raw = &((float*)b.data)[b.data_offset];
     float *c_raw = &((float*)c.data)[c.data_offset];
@@ -102,20 +102,46 @@ int main(){
 
   {
     printf("GRADIENT CHECK: ");
+    size_t t = 5;
     Network n = sk_create_network(test0);
-    Tensor x = create_tensor(SIEKNET_CPU, 25, n.input_dimension);
-    Tensor y = create_tensor(SIEKNET_CPU, 25, n.layers[n.depth-1]->output.dims[1]);
+    Tensor x = create_tensor(SIEKNET_CPU, 5, n.input_dimension);
+    Tensor y = create_tensor(SIEKNET_CPU, 5, n.layers[n.depth-1]->output.dims[1]);
 
+    float norm = 0;
+    size_t count = 0;
     float *params = &((float *)n.params.data)[n.params.data_offset];
     float *p_grad = &((float *)n.param_grad.data)[n.param_grad.data_offset];
     for(int i = 0; i < n.num_params; i++){
-      tensor_fill_random(x);
-      tensor_fill_random(y);
+      tensor_fill_random(x, 0, 0.3);
+      tensor_fill_random(y, 0.5, 0.1);
       sk_forward(&n, x);
       sk_cost(&n, n.layers[n.depth-1], y, SK_QUADRATIC_COST);
       sk_backward(&n);
-      printf("param %d: %f, grad %d: %f\n", i, params[i], i, p_grad[i]);
+
+      float epsilon = 1e-3;
+      float predicted_grad = p_grad[i];
+
+      printf("param %d: %f, %f\n", i, params[i], p_grad[i]);
+      if(predicted_grad != 0){
+        params[i] += epsilon;
+
+        sk_forward(&n, x);
+        float c1 = sk_cost(&n, n.layers[n.depth-1], y, SK_QUADRATIC_COST);
+        sk_backward(&n);
+
+        params[i] -= 2 * epsilon;
+        sk_forward(&n, x);
+        float c2 = sk_cost(&n, n.layers[n.depth-1], y, SK_QUADRATIC_COST);
+        sk_backward(&n);
+
+        float empirical_grad = (c1 - c2) / (2 * epsilon);
+        norm += (predicted_grad - empirical_grad) * (predicted_grad - empirical_grad);
+        count++;
+        printf("grad %d: %f - %f = %f\n", i, predicted_grad, empirical_grad, predicted_grad - empirical_grad);
+        params[i] += epsilon;
+      }
     }
+    printf("norm: %f.\n", norm / count);
   }
 
 #if 0
@@ -174,11 +200,11 @@ int main(){
 
   printf("cost 1: %f\n", c1 + c2 + c3);
 #endif
-#if 1
+#if 0
   Tensor x = create_tensor(SIEKNET_CPU, 13, n.input_dimension);
   Tensor y = create_tensor(SIEKNET_CPU, 13, n.layers[1]->size);
-  tensor_fill_random(x);
-  tensor_fill_random(y);
+  tensor_fill_random(x, 0, 1);
+  tensor_fill_random(y, 0, 1);
   sk_forward(&n, x);
   printf("cost 2: %f\n", sk_cost(&n, n.layers[1], y, SK_QUADRATIC_COST));
   sk_backward(&n);

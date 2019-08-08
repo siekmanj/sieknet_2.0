@@ -68,8 +68,6 @@ void sk_fc_layer_backward(Layer *l){
     if(dx.data)
       tensor_mmult(g, w, dx); // dX = g * w
 
-    if(dx.data)
-      tensor_print(dx);
   }
   /* Compute bias gradients */
   //tensor_copy(g, b);

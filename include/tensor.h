@@ -45,7 +45,7 @@ void tensor_elementwise_add(const Tensor, const Tensor, Tensor);
 void tensor_elementwise_mul(const Tensor, const Tensor, Tensor);
 
 void tensor_transpose(Tensor, size_t, size_t);
-void tensor_fill_random(Tensor);
+void tensor_fill_random(Tensor, float, float);
 void tensor_zero(Tensor);
 void tensor_copy(Tensor, Tensor);
 

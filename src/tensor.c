@@ -26,7 +26,7 @@ float tensor_at_idx(Tensor t, size_t *arr, size_t len){
   return -1;
 }
 
-void tensor_fill_random(Tensor t){
+void tensor_fill_random(Tensor t, float mean, float std){
   float *reals = (float*)t.data;
   size_t num_reals = 1;
   
@@ -34,7 +34,7 @@ void tensor_fill_random(Tensor t){
     num_reals *= t.dims[i];
 
   for(int i = 0; i < num_reals; i++)
-    reals[i] = normal(0, 1);
+    reals[i] = normal(mean, std);
 }
 
 void tensor_zero(Tensor t){
@@ -175,8 +175,9 @@ float tensor_quadratic_cost(Tensor o, Tensor y, Tensor grad){
       float o_i = o_mem[i * o.strides[0]];
       float y_i = y_mem[i * y.strides[0]];
 
-      cost += (o_i - y_i) * (o_i - y_i);
-      g_mem[i * grad.strides[0]] = o_i - y_i;
+      cost += 0.5 * (o_i - y_i) * (o_i - y_i);
+      g_mem[i * grad.strides[0]] = (o_i - y_i);
+      printf("grad: %f - %f\n", o_i, y_i);
     }
     return cost;
   }else if(y.device == SIEKNET_GPU){
