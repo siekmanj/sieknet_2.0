@@ -157,6 +157,7 @@ void tensor_softmax_precompute(Tensor t, Tensor d){
 }
 
 float tensor_quadratic_cost(Tensor o, Tensor y, Tensor grad){
+	//printf("****************** DOING COST ********************\n");
   if(y.device != o.device || y.device != grad.device)
     SK_ERROR("Devices must match.");
 
@@ -176,10 +177,19 @@ float tensor_quadratic_cost(Tensor o, Tensor y, Tensor grad){
       float o_i = o_mem[i * o.strides[0]];
       float y_i = y_mem[i * y.strides[0]];
 
-      cost += 0.5 * (o_i - y_i) * (o_i - y_i);
-      g_mem[i * grad.strides[0]] = (o_i - y_i);
-      printf("grad: %f - %f\n", o_i, y_i);
+      cost += 0.5 * (y_i - o_i) * (y_i - o_i);
+      g_mem[i * grad.strides[0]] = (y_i - o_i);
     }
+		/*
+		printf("DID COST:\n");
+		printf("OUTPUT:\n");
+		tensor_print(o);
+		printf("LABEL:\n");
+		tensor_print(y);
+		printf("GRAD:\n");
+		tensor_print(grad);
+		printf("COST: %f\n", cost);
+		*/
     return cost;
   }else if(y.device == SIEKNET_GPU){
     SK_ERROR("Tensor cost not implemented on GPU.");
@@ -490,7 +500,7 @@ void tensor_print(Tensor t){
     printf("{ ");
     for(int i = 0; i < t.dims[t.n - 1]; i++){
       pos[t.n - 1] = i;
-      printf("%6.4f", ((float *)t.data)[tensor_flat_idx(t, pos, t.n)]);
+      printf("%7.5f", ((float *)t.data)[tensor_flat_idx(t, pos, t.n)]);
       if(i < t.dims[t.n - 1] - 1) printf(", ");
       else printf(" }\n");
     }

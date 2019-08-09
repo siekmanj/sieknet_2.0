@@ -311,6 +311,12 @@ void parse_network(Network *n, const char *skfile){
   n->layers = layers;
   n->depth = num_layers;
 
+	if(!n->input_layername)
+		SK_ERROR("You must provide an 'input' field with a valid layer argument.");
+
+	if(!n->output_layername)
+		SK_ERROR("You must provide an 'output' field with a valid layer argument.");
+
   for(int i = 0; i < n->depth-1; i++){
     for(int j = i + 1; j < n->depth; j++){
       const char *name    = n->layers[i]->name;

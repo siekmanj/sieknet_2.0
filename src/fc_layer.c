@@ -15,6 +15,7 @@ typedef struct fc_data_{
 } FC_layer_data;
 
 void sk_fc_layer_forward(Layer *l, size_t t){
+	//printf("**************** LAYER '%s' *******************\n", l->name);
   FC_layer_data *d = (FC_layer_data*)l->data;
 
   Tensor b = d->bias;
@@ -26,9 +27,6 @@ void sk_fc_layer_forward(Layer *l, size_t t){
   /* Zero the output tensor for this timestep */
   tensor_zero(y);
 
-  /* Begin by elementwise-adding the bias to the output of this layer */
-  tensor_elementwise_add(b, y, y);
-
   /* Loop through all the input layers and do a matrix mult */
   for(int i = 0; i < l->num_input_layers; i++){
     Layer *in = l->input_layers[i];
@@ -38,18 +36,43 @@ void sk_fc_layer_forward(Layer *l, size_t t){
     Tensor x = in->rank >= l->rank ? in->loutput : in->output;
     x        = x.n == 1 ? x : get_subtensor(x, t);
 
+		/*
+		printf("T %lu: w:\n", t);
+		tensor_print(w);
+		printf("T %lu: x:\n", t);
+		tensor_print(x);
+		*/
+
     /* Matrix multiplication between weights and input */
     tensor_mmult(w, x, y);
   }
+	/* Elementwise-add the bias to the output */
+  tensor_elementwise_add(b, y, y);
+	/*
+	printf("T %lu: b:\n", t);
+	tensor_print(b);
+
+	printf("T %lu: y:\n", t);
+	tensor_print(y);
+
+	*/
   l->nonlinearity(y, dy);
+	/*
+	printf("T %lu: a\n", t);
+	tensor_print(y);
+	*/
 }
 
 void sk_fc_layer_backward(Layer *l){
+	//printf("***************** LAYER '%s' BACKWARD *****************\n", l->name);
   FC_layer_data *d = (FC_layer_data*)l->data;
 
   Tensor o = l->gradient;
   Tensor g = d->intermediate_grad;
   tensor_elementwise_mul(o, g, g); 
+
+	//printf("MUL GRADIENT:\n");
+	//tensor_print(g);
 
   for(int i = 0; i < l->num_input_layers; i++){
     Layer *in = l->input_layers[i];
@@ -67,8 +90,12 @@ void sk_fc_layer_backward(Layer *l){
     /* Compute input gradients if needed */
     if(dx.data)
       tensor_mmult(g, w, dx); // dX = g * w
+		
+		//printf("COMPUTED DW:\n");
+		//tensor_print(dw);
 
   }
+	tensor_zero(l->gradient);
   /* Compute bias gradients */
   //tensor_copy(g, b);
 }
