@@ -102,9 +102,10 @@ void tensor_sigmoid_precompute(Tensor t, Tensor d){
     size_t d_str = d.strides[0];
 
     for(int i = 0; i < t.dims[0]; i++){
-      z_mem[i * z_str] = 1 / (1 + exp(-z_mem[i * z_str]));
+      float a = 1 / (1 + exp(-z_mem[i * z_str]));
+      z_mem[i * z_str] = a;
       if(d_mem)
-        d_mem[i * d_str] = z_mem[i * z_str] * (1 - z_mem[i * z_str]);
+        d_mem[i * d_str] = a * (1 - a);
     }
 
   }else if(t.device == SIEKNET_GPU){
