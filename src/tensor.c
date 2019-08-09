@@ -6,8 +6,12 @@
 #include <tensor.h>
 #include <util.h>
 
+float *tensor_raw(Tensor t){
+  return &((float*)t.data)[t.data_offset];
+}
+
 size_t tensor_flat_idx(Tensor t, size_t *arr, size_t len){
-  size_t idx = t.data_offset;
+  size_t idx = 0;//t.data_offset;
 
   size_t max_idx = MIN(len, t.n);
   for(int i = 0; i < max_idx; i++)
@@ -18,7 +22,7 @@ size_t tensor_flat_idx(Tensor t, size_t *arr, size_t len){
 
 float tensor_at_idx(Tensor t, size_t *arr, size_t len){
   if(t.device == SIEKNET_CPU){
-    return ((float*)t.data)[tensor_flat_idx(t, arr, len)];
+    return tensor_raw(t)[tensor_flat_idx(t, arr, len)];
 
   }else if(t.device == SIEKNET_GPU){
 
@@ -42,7 +46,7 @@ void tensor_zero(Tensor t){
     size_t len = 1;
     for(int i = 0; i < t.n; i++)
       len *= t.dims[i];
-    float *x = &((float *)t.data)[t.data_offset];
+    float *x = tensor_raw(t);
     for(int i = 0; i < len; i++)
       x[i] = 0.0f;
 
@@ -58,6 +62,7 @@ Tensor tensor_clone(Tensor src){
 }
 
 void tensor_copy(Tensor src, Tensor dest){
+
   if(src.device != dest.device)
     SK_ERROR("Tensors must be on the same device.");
 
@@ -73,8 +78,8 @@ void tensor_copy(Tensor src, Tensor dest){
     len *= src.dims[i];
 
   if(src.device == SIEKNET_CPU){
-    float *src_mem  = &((float *)src.data)[src.data_offset];
-    float *dest_mem = &((float *)dest.data)[dest.data_offset];
+    float *src_mem  = tensor_raw(src);
+    float *dest_mem = tensor_raw(dest);
 
     for(int i = 0; i < len; i++)
       dest_mem[i] = src_mem[i];
@@ -96,8 +101,8 @@ void tensor_sigmoid_precompute(Tensor t, Tensor d){
       SK_ERROR("Tensor dimensions do not match on dimension %d: %lu vs %lu\n", i, t.dims[i], d.dims[i]);
 
   if(t.device == SIEKNET_CPU){
-    float *z_mem = &((float *)t.data)[t.data_offset];
-    float *d_mem = d.data != NULL ? &((float *)d.data)[d.data_offset] : NULL;
+    float *z_mem = tensor_raw(t);
+    float *d_mem = d.data != NULL ? tensor_raw(d) : NULL;
     size_t z_str = t.strides[0];
     size_t d_str = d.strides[0];
 
@@ -116,6 +121,7 @@ void tensor_sigmoid_precompute(Tensor t, Tensor d){
 }
 
 void tensor_tanh_precompute(Tensor t, Tensor d){
+
   if(t.device == SIEKNET_CPU){
 
   }else if(t.device == SIEKNET_GPU){
@@ -170,26 +176,17 @@ float tensor_quadratic_cost(Tensor o, Tensor y, Tensor grad){
   float cost = 0;
   if(y.device == SIEKNET_CPU){
 
-    float *o_mem = &((float *)o.data)[o.data_offset];
-    float *y_mem = &((float *)y.data)[y.data_offset];
-    float *g_mem = &((float *)grad.data)[grad.data_offset];
+    float *o_mem = tensor_raw(o);
+    float *y_mem = tensor_raw(y);
+    float *g_mem = tensor_raw(grad);
     for(int i = 0; i < y.dims[0]; i++){
       float o_i = o_mem[i * o.strides[0]];
       float y_i = y_mem[i * y.strides[0]];
 
-      cost += 0.5 * (y_i - o_i) * (y_i - o_i);
-      g_mem[i * grad.strides[0]] = (y_i - o_i);
+      cost += 0.5 * (o_i - y_i) * (o_i - y_i);
+      g_mem[i * grad.strides[0]] = (o_i - y_i);
     }
-		/*
-		printf("DID COST:\n");
-		printf("OUTPUT:\n");
-		tensor_print(o);
-		printf("LABEL:\n");
-		tensor_print(y);
-		printf("GRAD:\n");
-		tensor_print(grad);
-		printf("COST: %f\n", cost);
-		*/
+
     return cost;
   }else if(y.device == SIEKNET_GPU){
     SK_ERROR("Tensor cost not implemented on GPU.");
@@ -252,12 +249,12 @@ Tensor tensor_to_subtensor(Tensor t, size_t *arr, size_t len){
     ret.n            = 1;
     ret.dims         = &tmp_dim;
     ret.strides      = &tmp_str;
-    ret.data_offset  = tensor_flat_idx(t, arr, len);
+    ret.data_offset  += tensor_flat_idx(t, arr, len);
   }else{
     ret.n            = t.n - len;
     ret.dims         = &t.dims[len];
     ret.strides      = &t.strides[len];
-    ret.data_offset  = tensor_flat_idx(t, arr, len);
+    ret.data_offset  += tensor_flat_idx(t, arr, len);
   }
   return ret;
 }
@@ -289,9 +286,9 @@ void tensor_elementwise_add(const Tensor a, const Tensor b, Tensor c){
   for(int i = 0; i < a.n; i++)
     pos[i] = 0;
 
-  float *src_a  = (float*)a.data;
-  float *src_b  = (float*)b.data;
-  float *dest_c = (float*)c.data;
+  float *src_a  = tensor_raw(a);
+  float *src_b  = tensor_raw(b);
+  float *dest_c = tensor_raw(c);
 
   for(int i = 0; i < num_iters; i++){
     float one = src_a[tensor_flat_idx(a, pos, a.n)];
@@ -324,9 +321,9 @@ void tensor_elementwise_mul(const Tensor a, const Tensor b, Tensor c){
   for(int i = 0; i < a.n; i++)
     pos[i] = 0;
 
-  float *src_a  = (float*)a.data;
-  float *src_b  = (float*)b.data;
-  float *dest_c = (float*)c.data;
+  float *src_a  = tensor_raw(a);
+  float *src_b  = tensor_raw(b);
+  float *dest_c = tensor_raw(c);
 
   for(int i = 0; i < num_iters; i++){
     float one = src_a[tensor_flat_idx(a, pos, a.n)];
@@ -500,7 +497,7 @@ void tensor_print(Tensor t){
     printf("{ ");
     for(int i = 0; i < t.dims[t.n - 1]; i++){
       pos[t.n - 1] = i;
-      printf("%7.5f", ((float *)t.data)[tensor_flat_idx(t, pos, t.n)]);
+      printf("%7.5f", tensor_raw(t)[tensor_flat_idx(t, pos, t.n)]);
       if(i < t.dims[t.n - 1] - 1) printf(", ");
       else printf(" }\n");
     }

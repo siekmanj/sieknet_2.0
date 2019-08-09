@@ -102,10 +102,10 @@ int main(){
 
   {
     printf("GRADIENT CHECK: ");
-    size_t t = 5;
+    size_t t = 10;
     Network n = sk_create_network(test0);
-    Tensor x = create_tensor(SIEKNET_CPU, 1, n.input_dimension);
-    Tensor y = create_tensor(SIEKNET_CPU, 1, n.layers[n.depth-1]->output.dims[1]);
+    Tensor x = create_tensor(SIEKNET_CPU, t, n.input_dimension);
+    Tensor y = create_tensor(SIEKNET_CPU, t, n.layers[n.depth-1]->output.dims[1]);
 		tensor_fill_random(x, 0, 0.3);
 		tensor_fill_random(y, 0.5, 0.1);
 
@@ -118,33 +118,34 @@ int main(){
       sk_cost(&n, n.layers[n.depth-1], y, SK_QUADRATIC_COST);
       sk_backward(&n);
 
-      float epsilon = 1e-5;
+      float epsilon = 1e-4;
       float predicted_grad = p_grad[i];
 
-      //printf("param %d: %f, %f\n", i, params[i], p_grad[i]);
       if(predicted_grad != 0){
         params[i] += epsilon;
 
         sk_forward(&n, x);
         float c1 = sk_cost(&n, n.layers[n.depth-1], y, SK_QUADRATIC_COST);
-        //sk_backward(&n);
 				n.t = 0;
 
         params[i] -= 2 * epsilon;
         sk_forward(&n, x);
         float c2 = sk_cost(&n, n.layers[n.depth-1], y, SK_QUADRATIC_COST);
-        //sk_backward(&n);
 				n.t = 0;
 
         float empirical_grad = (c1 - c2) / (2 * epsilon);
         norm += (predicted_grad - empirical_grad) * (predicted_grad - empirical_grad);
         count++;
-        //printf("grad %d: %f - %f = %f\n", i, predicted_grad, empirical_grad, predicted_grad - empirical_grad);
         params[i] += epsilon;
       }
 			tensor_zero(n.param_grad);
     }
-    printf("norm: %f.\n", norm / count);
+    norm /= count;
+    if(norm < 1e-3)
+      printf("PASSED (norm %f)\n", norm);
+    else
+      printf("FAILED (norm %f)\n", norm);
+
   }
 
 #if 0
