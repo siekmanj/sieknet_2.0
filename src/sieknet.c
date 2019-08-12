@@ -14,6 +14,7 @@ static void initialize_network(Network *n){
   data->name             = "DATA_IN";
   data->params_per_input = 0;
   data->output           = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, n->input_dimension);
+  data->gradient.data    = NULL;
   n->data_layer = data;
 
   /*
@@ -82,18 +83,25 @@ Network sk_create_network(const char *skfile){
   return n;
 }
 
-static void sk_run_inference(Network *n){
+static void sk_run_inference(Network *n, Tensor x){
+  /*
+   * Copy the input into the data layer's storage 
+   */
+  Tensor input = get_subtensor(n->data_layer->output, n->t);
+  tensor_copy(x, input);
+
   /* 
    * Run the forward pass for each individual layer.
    */
   n->data_layer->output.dims[0] = n->t + 1;
   for(int i = 0; i < n->depth; i++){
-    n->layers[i]->output.dims[0]         = n->t + 1;   // Increase the time dimension of this layer's output
-    n->layers[i]->gradient.dims[0]       = n->t + 1;
-    for(int j = 0; j < n->layers[i]->num_input_layers; j++)
-      n->layers[i]->input_gradient[j].dims[0] = n->t + 1;
-
-    n->layers[i]->forward(n->layers[i], n->t); // Run the forward pass for this layer
+    printf("printing loutput for t %lu\n", n->t);
+    tensor_print(n->layers[i]->loutput);
+    n->layers[i]->output.dims[0]   = n->t + 1; // Increase the time dimension of this layer's output
+    n->layers[i]->gradient.dims[0] = n->t + 1;
+    n->layers[i]->forward(n->layers[i], n->t);       // Run the forward pass for this layer
+    printf("output:\n");
+    tensor_print(get_subtensor(n->layers[i]->output, n->t));
   }
 
   /* 
@@ -103,12 +111,17 @@ static void sk_run_inference(Network *n){
     Tensor o = get_subtensor(n->layers[i]->output, n->t);
     tensor_copy(o, n->layers[i]->loutput);
   }
+  n->t = n->trainable ? n->t + 1 : 0;     // If the network is in trainable mode, increment t.
+}
+
+static void sk_run_sequence_inference(Network *n, Tensor x){
+  for(int t = 0; t < x.dims[0]; t++){
+    Tensor x_t   = get_subtensor(x, n->t);
+    sk_run_inference(n, x_t);
+  }
 }
 
 void sk_forward(Network *n, Tensor x){
-  if(x.n != 2 && x.n != 1)
-    SK_ERROR("Expected a tensor of dimension 1 or 2 as input, but got %lu dimensions.\n", x.n);
-
   size_t sequence_length = x.n == 2 ? x.dims[0] : 1;
   size_t input_dimension = x.n == 2 ? x.dims[1] : x.dims[0];
 
@@ -118,24 +131,16 @@ void sk_forward(Network *n, Tensor x){
   if(input_dimension != n->input_dimension)
     SK_ERROR("Expected input dimension %lu but got %lu.", n->input_dimension, input_dimension);
 
-  if(x.n == 2){
-    for(int t = 0; t < sequence_length; t++){
-      Tensor input = get_subtensor(n->data_layer->output, n->t);
-      Tensor x_t   = get_subtensor(x, n->t);
-      tensor_copy(x_t, input);
-      sk_run_inference(n);                    // Run inference for this time step.
-      n->t = n->trainable ? n->t + 1 : 0;     // If the network is in trainable mode, increment t.
-    }
-  }
-  else if(x.n == 1){
-    /* 
-     * The below is a hack and is not guaranteed to work with transposed tensors - fix tensor_copy asap
-     */
-    Tensor input = get_subtensor(n->data_layer->output, n->t);
-    tensor_copy(x, input);
-
-    sk_run_inference(n);                         // Run inference for this time step.
-    n->t = n->trainable ? n->t + 1 : 0;          // If the network is in trainable mode, increment t.
+  switch(x.n){
+    case 1:
+      sk_run_inference(n, x);
+      break;
+    case 2:
+      sk_run_sequence_inference(n, x);
+      break;
+    default:
+      SK_ERROR("Inference not supported for an input tensor with %lu dimensions.", x.n);
+      break;
   }
 }
 
@@ -175,9 +180,6 @@ float sk_cost(Network *n, Layer *l, Tensor y, SK_COST_FN cost){
     if(y.dims[0] != n->t)
       SK_ERROR("Network timesteps are %lu, but label tensor is a sequence of length %lu. Expected these to match. Aborting.", n->t, y.dims[0]);
 
-    //l->gradient.dims[0]       = y.dims[0]; // Match label and cost matrix time dimensions
-    //l->input_gradient.dims[0] = y.dims[0]; // Match label 
-
     float sum_cost = 0;
     for(int t = 0; t < y.dims[0]; t++){
       Tensor output = get_subtensor(l->output, t);
@@ -190,9 +192,18 @@ float sk_cost(Network *n, Layer *l, Tensor y, SK_COST_FN cost){
   return -1;
 }
 
-void sk_backward(Network *n){
+static void sk_backward_pass(Network *n, int t){
   for(int i = n->depth-1; i >= 0; i--){
-    n->layers[i]->backward(n->layers[i]);
+    n->layers[i]->backward(n->layers[i], t);
+  }
+}
+
+void sk_backward(Network *n){
+  for(int t = n->t-1; t >= 0; t--){
+    sk_backward_pass(n, t);
+  }
+  for(int i = 0; i < n->depth; i++){
+    tensor_zero(n->layers[i]->loutput);
   }
   n->t = 0;
 }

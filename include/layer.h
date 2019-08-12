@@ -45,7 +45,7 @@ typedef struct layer_{
   SK_INIT_TYPE weight_initialization;
 
   void (*forward)(struct layer_*, size_t);
-  void (*backward)(struct layer_*);
+  void (*backward)(struct layer_*, size_t);
   void (*nonlinearity)(Tensor, Tensor);
 
 } Layer;

@@ -15,7 +15,6 @@ typedef struct fc_data_{
 } FC_layer_data;
 
 void sk_fc_layer_forward(Layer *l, size_t t){
-	//printf("**************** LAYER '%s' *******************\n", l->name);
   FC_layer_data *d = (FC_layer_data*)l->data;
 
   Tensor b = d->bias;
@@ -36,68 +35,55 @@ void sk_fc_layer_forward(Layer *l, size_t t){
     Tensor x = in->rank >= l->rank ? in->loutput : in->output;
     x        = x.n == 1 ? x : get_subtensor(x, t);
 
-		/*
-		printf("T %lu: w:\n", t);
-		tensor_print(w);
-		printf("T %lu: x:\n", t);
-		tensor_print(x);
-		*/
-
     /* Matrix multiplication between weights and input */
+    tensor_transpose(w, 0, 1);
     tensor_mmult(w, x, y);
+    tensor_transpose(w, 0, 1);
   }
 	/* Elementwise-add the bias to the output */
   tensor_elementwise_add(b, y, y);
-	/*
-	printf("T %lu: b:\n", t);
-	tensor_print(b);
-
-	printf("T %lu: y:\n", t);
-	tensor_print(y);
-
-	*/
   l->nonlinearity(y, dy);
-	/*
-	printf("T %lu: a\n", t);
-	tensor_print(y);
-	*/
 }
 
-void sk_fc_layer_backward(Layer *l){
-	//printf("***************** LAYER '%s' BACKWARD *****************\n", l->name);
+void sk_fc_layer_backward(Layer *l, size_t t){
   FC_layer_data *d = (FC_layer_data*)l->data;
 
-  Tensor o = l->gradient;
-  Tensor g = d->intermediate_grad;
+  Tensor o = get_subtensor(l->gradient, t);
+  Tensor g = get_subtensor(d->intermediate_grad, t);
   tensor_elementwise_mul(o, g, g); 
-
-	//printf("MUL GRADIENT:\n");
-	//tensor_print(g);
 
   for(int i = 0; i < l->num_input_layers; i++){
     Layer *in = l->input_layers[i];
 
     Tensor w  = d->weights[i];
-    Tensor x  = in->output;
-    Tensor dx = in->gradient;
     Tensor dw = d->weight_grad[i];
 
+    Tensor x  = {0};
+    Tensor dx = {0};
+    if(in->rank >= l->rank){ // If this is a recurrent connection
+      if(t > 0){
+        x = get_subtensor(in->output, t-1);
+        if(in->gradient.data)
+          dx = get_subtensor(in->gradient, t-1);
+      }else
+        continue;
+    }else{
+      x = get_subtensor(in->output, t);
+      if(in->gradient.data)
+        dx = get_subtensor(in->gradient, t);
+    }
+
     /* Compute weight gradients */
-    tensor_transpose(g, 0, 1);
-    tensor_mmult(g, x, dw); // dW = g^T * x
-    tensor_transpose(g, 0, 1);
+    tensor_mmult(x, g, dw); // dW = x * g
 
     /* Compute input gradients if needed */
     if(dx.data)
-      tensor_mmult(g, w, dx); // dX = g * w
-		
-		//printf("COMPUTED DW:\n");
-		//tensor_print(dw);
-
+      tensor_mmult(w, g, dx); // dX = g * w
   }
-	tensor_zero(l->gradient);
+	tensor_zero(o);
   /* Compute bias gradients */
-  //tensor_copy(g, b);
+  Tensor db = d->bias_grad;
+  tensor_elementwise_add(g, db, db);
 }
 
 static const char *sk_fc_layer_identifiers[]   = {"logistic", "size", "type", "input", "name"};
@@ -197,11 +183,9 @@ void sk_fc_layer_parse_attribute(Layer *l, const char *identifier, char **remain
 void sk_fc_layer_allocate(Layer *l){
   l->num_params = 0;
 
-  l->input_gradient = calloc(l->num_input_layers, sizeof(Tensor));
   for(int i = 0; i < l->num_input_layers; i++){
     Layer *in = l->input_layers[i];
     l->num_params += (l->size * in->size) + l->size;
-    l->input_gradient[i] = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->input_layers[i]->size);
   }
 
   l->output         = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
@@ -257,28 +241,15 @@ void sk_fc_layer_initialize(Layer *l, Tensor p, Tensor g){
   size_t param_offset = l->param_idx;
   FC_layer_data *d = (FC_layer_data *)l->data;
 
-  d->bias             = create_tensor(SIEKNET_CPU, l->size);
-  free(d->bias.data);
-  d->bias.data        = p.data;
-  d->bias.data_offset = param_offset;
-
-  d->bias_grad             = create_tensor(SIEKNET_CPU, l->size);
-  free(d->bias_grad.data);
-  d->bias_grad.data        = g.data;
-  d->bias_grad.data_offset = param_offset;
+  d->bias      = get_subtensor_reshape(p, param_offset, l->size);
+  d->bias_grad = get_subtensor_reshape(g, param_offset, l->size);
 
   param_offset += l->size;
 
   for(int i = 0; i < l->num_input_layers; i++){
-    d->weights[i]             = create_tensor(SIEKNET_CPU, l->size, l->input_layers[i]->size);
-    free(d->weights[i].data);
-    d->weights[i].data        = p.data;
-    d->weights[i].data_offset = param_offset;
 
-    d->weight_grad[i]             = create_tensor(SIEKNET_CPU, l->size, l->input_layers[i]->size);
-    free(d->weight_grad[i].data);
-    d->weight_grad[i].data        = g.data;
-    d->weight_grad[i].data_offset = param_offset;
+    d->weights[i]     = get_subtensor_reshape(p, param_offset, l->input_layers[i]->size, l->size);
+    d->weight_grad[i] = get_subtensor_reshape(g, param_offset, l->input_layers[i]->size, l->size);
 
     param_offset += l->size * l->input_layers[i]->size;
   }

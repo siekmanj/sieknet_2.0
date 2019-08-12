@@ -11,7 +11,7 @@ float *tensor_raw(Tensor t){
 }
 
 size_t tensor_flat_idx(Tensor t, size_t *arr, size_t len){
-  size_t idx = 0;//t.data_offset;
+  size_t idx = 0;
 
   size_t max_idx = MIN(len, t.n);
   for(int i = 0; i < max_idx; i++)
@@ -208,18 +208,6 @@ float tensor_cross_entropy_cost(Tensor y, Tensor label, Tensor grad){
   float cost = 0;
   if(y.device == SIEKNET_CPU){
 
-    /*
-    float *y_mem = &((float *)y.data)[y.data_offset];
-    float *l_mem = &((float *)label.data)[label.data_offset];
-    float *g_mem = &((float *)grad.data)[grad.data_offset];
-    for(int i = 0; i < y.dims[0]; i++){
-      float y_i = y_mem[i * y.strides[0]];
-      float l_i = l_mem[i * label.strides[0]];
-
-      cost += (y_i - l_i) * (y_i - l_i);
-      g_mem[i * grad.strides[0]] = y_i - l_i;
-    }
-    */
     return cost;
   }else if(y.device == SIEKNET_GPU){
     SK_ERROR("Tensor cost not implemented on GPU.");
@@ -236,6 +224,14 @@ void tensor_transpose(Tensor t, size_t dim1, size_t dim2){
   SWAP(t.strides[t.n - dim1 - 1], t.strides[t.n - dim2 - 1]);
 
 }
+
+static size_t tensor_axis_stride(Tensor t, size_t axis){
+  size_t stride = 1;
+  for(int i = 0; i < axis; i++)
+    stride *= t.dims[t.n - i - 1];
+  return stride;
+}
+
 
 static size_t tmp_dim = 1;
 static size_t tmp_str = 0;
@@ -256,14 +252,28 @@ Tensor tensor_to_subtensor(Tensor t, size_t *arr, size_t len){
     ret.strides      = &t.strides[len];
     ret.data_offset  += tensor_flat_idx(t, arr, len);
   }
+  ret.type = SUBTENSOR;
+
   return ret;
 }
 
-static size_t tensor_axis_stride(Tensor t, size_t axis){
-  size_t stride = 1;
-  for(int i = 0; i < axis; i++)
-    stride *= t.dims[t.n - i - 1];
-  return stride;
+Tensor tensor_to_subtensor_reshape(Tensor t, size_t offset, size_t *arr, size_t len){
+  Tensor ret       = t;
+  ret.n            = len;
+  ret.type         = RESHAPE;
+  ret.data_offset  = t.data_offset + offset;
+
+  size_t *new_dims = malloc(sizeof(size_t) * len);
+  size_t *new_strd = malloc(sizeof(size_t) * len);
+  memcpy(new_dims, arr, sizeof(size_t) * len);
+
+  ret.dims         = new_dims;
+  ret.strides      = new_strd;
+
+  for(int i = 0; i < len; i++)
+    ret.strides[i] = tensor_axis_stride(ret, ret.n - i - 1);
+
+  return ret;
 }
 
 /*
@@ -342,87 +352,73 @@ void tensor_elementwise_mul(const Tensor a, const Tensor b, Tensor c){
 
 
 void tensor_mmult(const Tensor a, const Tensor b, Tensor c){
+  //tensor_print(a);
+  //tensor_print(b);
 #ifdef SIEKNET_DEBUG
   if(a.n > 2 || b.n > 2 || c.n > 2)
     SK_ERROR("Dimensions of all matrices must be 2 or fewer - got dimensions %lu, %lu, %lu.\n", a.n, b.n, c.n);
 #endif
   
-  size_t outer_dim_a = a.n == 2 ? a.dims[a.n - 2] : a.dims[0];
-  size_t inner_dim_a = a.n == 2 ? a.dims[a.n - 1] : 1;
+  int left_axis_a = a.n == 2 ? a.n - 2 : 0;
+  int right_axis_a = a.n == 2 ? a.n - 1 : -1;
 
-  size_t outer_dim_b = b.n == 2 ? b.dims[b.n - 2] : b.dims[0];
-  size_t inner_dim_b = b.n == 2 ? b.dims[b.n - 1] : 1;
+  int left_axis_b = b.n == 2 ? b.n - 2 : 0;
+  int right_axis_b = b.n == 2 ? b.n - 1 : -1;
 
-  size_t outer_dim_c = c.n == 2 ? c.dims[c.n - 2] : c.dims[0];
-  size_t inner_dim_c = c.n == 2 ? c.dims[c.n - 1] : 1;
+  int left_axis_c = c.n == 2 ? c.n - 2 : 0;
+  int right_axis_c = c.n == 2 ? c.n - 1 : -1;
 
-#ifdef SIEKNET_DEBUG
-  if(inner_dim_a != outer_dim_b)
-    SK_ERROR("Tensor dimensions must match - got (%lu x %lu) * (%lu x %lu).", outer_dim_a, inner_dim_a, outer_dim_b, inner_dim_b);
+  size_t left_dim_a  =  left_axis_a >= 0 ? a.dims[left_axis_a]  : 1;
+  size_t right_dim_a = right_axis_a >= 0 ? a.dims[right_axis_a] : 1;
+  
+  size_t left_dim_b  =  left_axis_b >= 0 ? b.dims[left_axis_b]  : 1;
+  size_t right_dim_b = right_axis_b >= 0 ? b.dims[right_axis_b] : 1;
 
-  if(outer_dim_a != outer_dim_c || inner_dim_b != inner_dim_c)
-    SK_ERROR("Output tensor dimension must match - expected (%lu x %lu) but got (%lu x %lu).", outer_dim_a, inner_dim_b, outer_dim_c, inner_dim_c);
-#endif
+  size_t left_dim_c  =  left_axis_c >= 0 ? c.dims[left_axis_c]  : 1;
+  size_t right_dim_c = right_axis_c >= 0 ? c.dims[right_axis_c] : 1;
 
-  if(b.n > 1)
-    tensor_transpose(b, 0, 1); // swap axes 0 and 1
+  size_t left_stride_a  =  left_axis_a >= 0 ? a.strides[left_axis_a]  : 0;
+  size_t right_stride_a = right_axis_a >= 0 ? a.strides[right_axis_a] : 0;
+  
+  size_t left_stride_b  =  left_axis_b >= 0 ? b.strides[left_axis_b]  : 0;
+  size_t right_stride_b = right_axis_b >= 0 ? b.strides[right_axis_b] : 0;
 
-  for(int i = 0; i < outer_dim_a; i++){
-    Tensor w, x, y;
-    if(a.n > 1)
-      w = get_subtensor(a, i);
-    else
-      w = a;
+  size_t left_stride_c  =  left_axis_c >= 0 ? c.strides[left_axis_c]  : 0;
+  size_t right_stride_c = right_axis_c >= 0 ? c.strides[right_axis_c] : 0;
 
-    for(int j = 0; j < inner_dim_b; j++){
-      if(b.n > 1)
-        x = get_subtensor(b, j);
-      else
-        x = b;
-
-      if(c.n > 1)
-        y = get_subtensor(c, i, j);
-      else
-        y = get_subtensor(c, i);
-
-      ((float*)y.data)[y.data_offset] += tensor_reduce_dot(w, x);
-
-    }
-  }
-  if(b.n > 1)
-    tensor_transpose(b, 0, 1); // un-swap axes 0 and 1
-}
-
-/*
- * Perform a dot-product reduction on two tensors,
- * CPU only.
- */
-float tensor_reduce_dot(const Tensor a, const Tensor b){
-#ifdef SIEKNET_DEBUG
-  if(a.n != 1 || b.n != 1)
-    SK_ERROR("Dot product not defined for tensors greater than dimension 1 (got dimensions %lu and %lu).\n", a.n, b.n);
-
-  if(a.dims[0] != b.dims[0])
-    SK_ERROR("Dot product not defined for tensors of unequal length (%lu vs %lu)\n", a.dims[0], b.dims[0]);
-#endif
-
-  float ret = 0;
-  if(a.device == SIEKNET_CPU){
-    const float *w = &((float*)a.data)[a.data_offset];
-    const float *x = &((float*)b.data)[b.data_offset];
-
-    for(int i = 0; i < b.dims[0]; i++){
-      ret += w[a.strides[0]* i] * x[b.strides[0]* i];
-    }
-    return ret;
+  if(right_dim_a != left_dim_b && b.n == 1){
+    SWAP(left_dim_b, right_dim_b);
+    SWAP(left_stride_b, right_stride_b);
   }
 
-  if(a.device == SIEKNET_GPU)
-    SK_ERROR("tensor_reduce_dot can only be run on the CPU.");
-  else
-    SK_ERROR("Invalid device.");
+  //printf("multiplying (%lu x %lu) * (%lu x %lu) = (%lu x %lu)\n", left_dim_a, right_dim_a, left_dim_b, right_dim_b, left_dim_c, right_dim_c);
 
-  return 0;
+#ifdef SIEKNET_DEBUG
+  if(right_dim_a != left_dim_b)
+    SK_ERROR("Tensor dimensions must match - got (%lu x %lu) * (%lu x %lu).", left_dim_a, right_dim_a, left_dim_b, right_dim_b);
+
+  if(left_dim_a != left_dim_c || right_dim_b != right_dim_c)
+    SK_ERROR("Output tensor dimension must match - expected (%lu x %lu) but got (%lu x %lu).", left_dim_a, right_dim_b, left_dim_c, right_dim_c);
+#endif
+
+  float *raw_a = tensor_raw(a);
+  float *raw_b = tensor_raw(b);
+  float *raw_c = tensor_raw(c);
+
+  for(int i = 0; i < left_dim_a; i++){
+    for(int j = 0; j < right_dim_b; j++){
+      //raw_c[i * left_stride_c + j * right_stride_c] = 0.0f;
+      //printf("raw_c[%d,%d]: %f\n", i, j, raw_c[i * left_stride_c + j * right_stride_c]);
+      for(int k = 0; k < left_dim_b; k++){
+        float a_ik = raw_a[i * left_stride_a  + k * right_stride_a];
+        float b_jk = raw_b[j * right_stride_b + k * left_stride_b];
+        raw_c[i * left_stride_c + j * right_stride_c] += a_ik * b_jk;
+        //printf("(%d, %d)[%d] += %f * %f\n", i, j, k, a_ik, b_jk);
+        //getchar();
+      }
+    }
+  }
+  //getchar();
 }
 
 void arr_to_tensor(float *buff, size_t bufflen, Tensor t, size_t *arr, size_t len){
@@ -430,7 +426,7 @@ void arr_to_tensor(float *buff, size_t bufflen, Tensor t, size_t *arr, size_t le
     SK_ERROR("Expected %lu indices for a %lu-dimensional tensor, but got %lu.", t.n - 1, t.n, len);
 
   if(bufflen != t.dims[t.n - 1])
-    SK_ERROR("Buffer must be of length %lu (got %lu) for tensor with innermost dimension %lu", t.dims[t.n-1], bufflen, t.dims[t.n-1]);
+    SK_ERROR("Buffer must be of length %lu (got %lu) for tensor with rightmost dimension %lu", t.dims[t.n-1], bufflen, t.dims[t.n-1]);
 
   if(t.device == SIEKNET_CPU){
     float *dest = &((float*)t.data)[tensor_flat_idx(t, arr, len)];
@@ -440,7 +436,7 @@ void arr_to_tensor(float *buff, size_t bufflen, Tensor t, size_t *arr, size_t le
   }
 }
 
-Tensor tensor_from_arr(Device device, size_t *dimensions, size_t num_dimensions){
+Tensor tensor_from_arr(TENSOR_DEVICE device, size_t *dimensions, size_t num_dimensions){
   size_t num_elements = 1;
   for(int i = 0; i < num_dimensions; i++)
     num_elements *= dimensions[i];
@@ -449,6 +445,7 @@ Tensor tensor_from_arr(Device device, size_t *dimensions, size_t num_dimensions)
   ret.n = num_dimensions;
   ret.device = device;
   ret.data_offset = 0;
+  ret.type = TENSOR;
   if(device == SIEKNET_CPU){
     ret.dims    = calloc(num_dimensions, sizeof(size_t));
     ret.strides = calloc(num_dimensions, sizeof(size_t));
@@ -462,6 +459,28 @@ Tensor tensor_from_arr(Device device, size_t *dimensions, size_t num_dimensions)
     ret.strides[i] = tensor_axis_stride(ret, ret.n - i - 1);
   }
   return ret;
+}
+
+void tensor_dealloc(Tensor t){
+  switch(t.type){
+    case TENSOR:{
+      free(t.dims);
+      free(t.strides);
+      if(t.device == SIEKNET_CPU)
+        free(t.data);
+      else
+        SK_ERROR("tensor_dealloc not implemented for gpu.");
+      break;
+    }
+    case SUBTENSOR:{
+      break;
+    }
+    case RESHAPE:{
+      free(t.dims);
+      free(t.strides);
+      break;
+    }
+  }
 }
 
 void tensor_print(Tensor t){

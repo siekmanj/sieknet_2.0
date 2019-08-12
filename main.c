@@ -10,6 +10,22 @@ const char* test2= "model/three.sk";
 
 int main(){
   srand(0);
+
+#if 0
+  {
+    Tensor a = create_tensor(SIEKNET_CPU, 10, 1);
+    Tensor b = create_tensor(SIEKNET_CPU, 1, 4);
+    tensor_fill_random(a, 0, 1);
+    tensor_fill_random(b, 0, 1);
+    tensor_print(a);
+    tensor_print(b);
+    Tensor c = create_tensor(SIEKNET_CPU, 10, 4);
+    tensor_mmult(a, b, c);
+    tensor_print(c);
+    //exit(1);
+  }
+#endif
+
   {
     printf("TRANSPOSE_TEST: ");
     Tensor a = create_tensor(SIEKNET_CPU, 15, 16);
@@ -17,8 +33,8 @@ int main(){
     tensor_fill_random(a, 0, 1);
     tensor_copy(a, b);
     tensor_transpose(b, 1, 0);
-    float *a_raw = &((float*)a.data)[a.data_offset];
-    float *b_raw = &((float*)b.data)[b.data_offset];
+    float *a_raw = tensor_raw(a);
+    float *b_raw = tensor_raw(b);
     int success = 1;
     for(int i = 0; i < 15; i++){
       for(int j = 0; j < 16; j++){
@@ -32,6 +48,8 @@ int main(){
       printf("PASSED\n");
     else
       printf("FAILED\n");
+    tensor_dealloc(a);
+    tensor_dealloc(b);
   }
 
   {
@@ -41,9 +59,9 @@ int main(){
     Tensor c = create_tensor(SIEKNET_CPU, 4, 5, 6);
     tensor_fill_random(a, 0, 1);
     tensor_fill_random(b, 0, 1);
-    float *a_raw = &((float*)a.data)[a.data_offset];
-    float *b_raw = &((float*)b.data)[b.data_offset];
-    float *c_raw = &((float*)c.data)[c.data_offset];
+    float *a_raw = tensor_raw(a);
+    float *b_raw = tensor_raw(b);
+    float *c_raw = tensor_raw(c);
     
     tensor_elementwise_add(a, b, c);
 
@@ -65,6 +83,9 @@ int main(){
       printf("PASSED\n");
     else
       printf("FAILED\n");
+    tensor_dealloc(a);
+    tensor_dealloc(b);
+    tensor_dealloc(c);
   }
 
   {
@@ -74,9 +95,9 @@ int main(){
     Tensor c = create_tensor(SIEKNET_CPU, 4, 5, 6);
     tensor_fill_random(a, 0, 1);
     tensor_fill_random(b, 0, 1);
-    float *a_raw = &((float*)a.data)[a.data_offset];
-    float *b_raw = &((float*)b.data)[b.data_offset];
-    float *c_raw = &((float*)c.data)[c.data_offset];
+    float *a_raw = tensor_raw(a);
+    float *b_raw = tensor_raw(b);
+    float *c_raw = tensor_raw(c);
     
     tensor_elementwise_mul(a, b, c);
 
@@ -93,16 +114,20 @@ int main(){
           }
         }
       }
+      
     }
     if(success)
       printf("PASSED\n");
     else
       printf("FAILED\n");
+    tensor_dealloc(a);
+    tensor_dealloc(b);
+    tensor_dealloc(c);
   }
 
   {
     printf("GRADIENT CHECK: ");
-    size_t t = 10;
+    size_t t = 5;
     Network n = sk_create_network(test0);
     Tensor x = create_tensor(SIEKNET_CPU, t, n.input_dimension);
     Tensor y = create_tensor(SIEKNET_CPU, t, n.layers[n.depth-1]->output.dims[1]);
@@ -111,9 +136,9 @@ int main(){
 
     float norm = 0;
     size_t count = 0;
-    float *params = &((float *)n.params.data)[n.params.data_offset];
-    float *p_grad = &((float *)n.param_grad.data)[n.param_grad.data_offset];
-    for(int i = 2; i < n.num_params; i++){
+    float *params = tensor_raw(n.params);
+    float *p_grad = tensor_raw(n.param_grad);
+    for(int i = 0; i < n.num_params; i++){
       sk_forward(&n, x);
       sk_cost(&n, n.layers[n.depth-1], y, SK_QUADRATIC_COST);
       sk_backward(&n);
@@ -137,9 +162,11 @@ int main(){
         norm += (predicted_grad - empirical_grad) * (predicted_grad - empirical_grad);
         count++;
         params[i] += epsilon;
+        printf("err: %d: %f - %f = %f\n", i, predicted_grad, empirical_grad, predicted_grad - empirical_grad);
       }
 			tensor_zero(n.param_grad);
     }
+    printf("%s off: %lu, %s off: %lu\n", n.layers[0]->name, n.layers[0]->param_idx, n.layers[1]->name, n.layers[1]->param_idx);
     norm /= count;
     if(norm < 1e-3)
       printf("PASSED (norm %f)\n", norm);

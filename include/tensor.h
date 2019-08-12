@@ -3,7 +3,8 @@
 
 #include <conf.h>
 
-typedef enum sk_device_ {SIEKNET_CPU, SIEKNET_GPU} Device;
+typedef enum sk_device_ {SIEKNET_CPU, SIEKNET_GPU} TENSOR_DEVICE;
+typedef enum sk_tensor_ {TENSOR, SUBTENSOR, RESHAPE} TENSOR_TYPE;
 
 /*
  * An n-dimensional tensor stored contiguously in memory.
@@ -15,12 +16,14 @@ typedef struct tensor_{
 
   void *data;
 
-  Device device;
+  TENSOR_DEVICE device;
   size_t data_offset;
+
+  TENSOR_TYPE type;
 } Tensor;
 
 #define create_tensor(device, ...) tensor_from_arr(device, (size_t[]){__VA_ARGS__}, sizeof((size_t[]){__VA_ARGS__})/sizeof(size_t))
-Tensor tensor_from_arr(Device, size_t *, size_t);
+Tensor tensor_from_arr(TENSOR_DEVICE, size_t *, size_t);
 
 #define copy_to_tensor(buff, bufflen, tensor, ...) arr_to_tensor(buff, bufflen, tensor, (size_t[]){__VA_ARGS__}, sizeof((size_t[]){__VA_ARGS__})/sizeof(size_t))
 void arr_to_tensor(float *, size_t, Tensor, size_t *, size_t);
@@ -29,12 +32,15 @@ void arr_to_tensor(float *, size_t, Tensor, size_t *, size_t);
 size_t tensor_flat_idx(Tensor, size_t *, size_t);
 
 #define get_subtensor(tensor, ...) tensor_to_subtensor(tensor, (size_t[]){__VA_ARGS__}, sizeof((size_t[]){__VA_ARGS__})/sizeof(size_t))
-Tensor tensor_to_subtensor(Tensor, size_t *, size_t);
+Tensor tensor_to_subtensor(Tensor, size_t *, size_t); 
+
+#define get_subtensor_reshape(tensor, offset, ...) tensor_to_subtensor_reshape(tensor, offset, (size_t[]){__VA_ARGS__}, sizeof((size_t[]){__VA_ARGS__})/sizeof(size_t))
+Tensor tensor_to_subtensor_reshape(Tensor, size_t, size_t *, size_t);
 
 #define tensor_at(tensor, ...) tensor_at_idx(tensor, (size_t[]){__VA_ARGS__}, sizeof((size_t[]){__VA_ARGS__})/sizeof(size_t))
 size_t tensor_flat_idx(Tensor, size_t *, size_t);
 
-void tensor_to(Device, Tensor *);
+void tensor_to(TENSOR_DEVICE, Tensor *);
 
 float tensor_reduce_dot(const Tensor, const Tensor);
 
@@ -58,6 +64,9 @@ void tensor_softmax_precompute(Tensor, Tensor);
 float tensor_quadratic_cost(Tensor, Tensor, Tensor);
 float tensor_cross_entropy_cost(Tensor, Tensor, Tensor);
 
+float *tensor_raw(Tensor);
+
 void tensor_print(Tensor);
+void tensor_dealloc(Tensor);
 
 #endif
