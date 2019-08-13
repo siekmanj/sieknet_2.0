@@ -83,6 +83,13 @@ Network sk_create_network(const char *skfile){
   return n;
 }
 
+void sk_wipe(Network *n){
+  for(int i = 0; i < n->depth; i++){
+    //TODO: make this a member function
+    tensor_zero(n->layers[i]->loutput);
+  }
+}
+
 static void sk_run_inference(Network *n, Tensor x){
   /*
    * Copy the input into the data layer's storage 
@@ -95,13 +102,9 @@ static void sk_run_inference(Network *n, Tensor x){
    */
   n->data_layer->output.dims[0] = n->t + 1;
   for(int i = 0; i < n->depth; i++){
-    printf("printing loutput for t %lu\n", n->t);
-    tensor_print(n->layers[i]->loutput);
     n->layers[i]->output.dims[0]   = n->t + 1; // Increase the time dimension of this layer's output
     n->layers[i]->gradient.dims[0] = n->t + 1;
     n->layers[i]->forward(n->layers[i], n->t);       // Run the forward pass for this layer
-    printf("output:\n");
-    tensor_print(get_subtensor(n->layers[i]->output, n->t));
   }
 
   /* 
@@ -195,15 +198,13 @@ float sk_cost(Network *n, Layer *l, Tensor y, SK_COST_FN cost){
 static void sk_backward_pass(Network *n, int t){
   for(int i = n->depth-1; i >= 0; i--){
     n->layers[i]->backward(n->layers[i], t);
+    tensor_zero(get_subtensor(n->layers[i]->gradient, t));
   }
 }
 
 void sk_backward(Network *n){
   for(int t = n->t-1; t >= 0; t--){
     sk_backward_pass(n, t);
-  }
-  for(int i = 0; i < n->depth; i++){
-    tensor_zero(n->layers[i]->loutput);
   }
   n->t = 0;
 }

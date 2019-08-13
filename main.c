@@ -143,6 +143,8 @@ int main(){
       sk_cost(&n, n.layers[n.depth-1], y, SK_QUADRATIC_COST);
       sk_backward(&n);
 
+      sk_wipe(&n);
+
       float epsilon = 1e-4;
       float predicted_grad = p_grad[i];
 
@@ -152,17 +154,20 @@ int main(){
         sk_forward(&n, x);
         float c1 = sk_cost(&n, n.layers[n.depth-1], y, SK_QUADRATIC_COST);
 				n.t = 0;
+        sk_wipe(&n);
 
         params[i] -= 2 * epsilon;
         sk_forward(&n, x);
         float c2 = sk_cost(&n, n.layers[n.depth-1], y, SK_QUADRATIC_COST);
 				n.t = 0;
+        sk_wipe(&n);
 
         float empirical_grad = (c1 - c2) / (2 * epsilon);
         norm += (predicted_grad - empirical_grad) * (predicted_grad - empirical_grad);
         count++;
         params[i] += epsilon;
-        printf("err: %d: %f - %f = %f\n", i, predicted_grad, empirical_grad, predicted_grad - empirical_grad);
+        //printf("err: %d: %f - (%f - %f) / (2 * %f) = %f\n", i, predicted_grad, c1, c2, epsilon, predicted_grad - empirical_grad);
+        //getchar();
       }
 			tensor_zero(n.param_grad);
     }

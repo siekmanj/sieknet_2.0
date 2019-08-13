@@ -44,11 +44,9 @@ void    sk_save_network(const char *);
 
 void  sk_forward(Network *, Tensor);
 float sk_cost(Network *, Layer *, Tensor, SK_COST_FN);
-
-//void  sk_sequence_forward(Network *, Tensor);
-//float sk_sequence_cost(SK_COST_FN, Layer *, Tensor);
-
 void  sk_backward(Network *);
+
+void sk_wipe(Network *n);
 
 Layer *sk_layer_from_name(Network *, const char *);
 #endif

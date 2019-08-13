@@ -65,8 +65,7 @@ void sk_fc_layer_backward(Layer *l, size_t t){
         x = get_subtensor(in->output, t-1);
         if(in->gradient.data)
           dx = get_subtensor(in->gradient, t-1);
-      }else
-        continue;
+      }else continue;
     }else{
       x = get_subtensor(in->output, t);
       if(in->gradient.data)
@@ -80,7 +79,6 @@ void sk_fc_layer_backward(Layer *l, size_t t){
     if(dx.data)
       tensor_mmult(w, g, dx); // dX = g * w
   }
-	tensor_zero(o);
   /* Compute bias gradients */
   Tensor db = d->bias_grad;
   tensor_elementwise_add(g, db, db);
