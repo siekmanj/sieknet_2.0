@@ -11,7 +11,7 @@
 
 typedef enum sk_logistic {SK_SIGMOID, SK_TANH, SK_RELU, SK_LINEAR, SK_SOFTMAX} SK_LOGISTIC;
 typedef enum sk_init_type {SK_XAVIER, SK_HE} SK_INIT_TYPE;
-typedef enum sk_type     {SK_FF, SK_RC, SK_LSTM, SK_GRU, SK_ATT} SK_LAYERTYPE;
+typedef enum sk_type     {SK_FF, SK_LSTM, SK_GRU, SK_ATT} SK_LAYER_TYPE;
 
 typedef void (*SK_LOGISTIC_FN)(Tensor);
 
@@ -40,7 +40,7 @@ typedef struct layer_{
 
   void *data;
 
-  SK_LAYERTYPE layertype;
+  SK_LAYER_TYPE layertype;
   SK_LOGISTIC logistic;
   SK_INIT_TYPE weight_initialization;
 
@@ -51,6 +51,8 @@ typedef struct layer_{
 } Layer;
 
 int contains_layer(Layer **, Layer *, size_t);
+
+SK_LAYER_TYPE sk_layer_parse_identifier(const char *);
 
 void sk_layer_allocate(Layer *);
 void sk_layer_initialize(Layer *, Tensor, Tensor);

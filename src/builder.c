@@ -125,13 +125,8 @@ void build_network(Network *n){
     for(int j = 0; j < l->num_output_layers; j++){
       Layer *out = l->output_layers[j];
       if(out->rank <= l->rank){
-        if(l->layertype == SK_FF){
-          printf("WARNING: '%s' has layertype 'feedforward' but acts as an implicit recurrent input to '%s'. The layertype has been changed, but this may lead to unexpected results.\n", l->name, out->name);
-          l->layertype = SK_RC;
-        }
+        n->is_recurrent = 1;
       }
     }
-    if(l->layertype != SK_FF)
-      n->is_recurrent = 1;
   }
 }

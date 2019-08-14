@@ -14,13 +14,19 @@ int sk_contains_layer(Layer **arr, Layer *comp, size_t arrlen){
   return 0;
 }
 
+SK_LAYER_TYPE sk_layer_parse_identifier(const char *line){
+  if(!strcmp(line, sk_fc_layer_identifier))
+    return SK_FF;
+  //if(!strcmp(buff, sk_lstm_layer_identifier))
+  //  return SK_LSTM;
+  return -1;
+}
+
 void sk_layer_parse(Layer *l, char *identifier, char **remaining){
   switch(l->layertype){
     case SK_FF:
-    case SK_RC:{
-      sk_fc_layer_parse_attribute(l, identifier, remaining);
+      //sk_fc_layer_parse_attribute(l, identifier, remaining);
       break;
-    }
     default:{
       SK_ERROR("Parse not implemented for this layer type.");
     }
@@ -30,10 +36,8 @@ void sk_layer_parse(Layer *l, char *identifier, char **remaining){
 void sk_layer_allocate(Layer *l){
   switch(l->layertype){
     case SK_FF:
-    case SK_RC:{
       sk_fc_layer_allocate(l);
       break;
-    }
     case SK_LSTM:{
       SK_ERROR("LSTM not implemented.");
       break;
@@ -52,10 +56,8 @@ void sk_layer_allocate(Layer *l){
 void sk_layer_initialize(Layer *l, Tensor p, Tensor g){
   switch(l->layertype){
     case SK_FF:
-    case SK_RC:{
       sk_fc_layer_initialize(l, p, g);
       break;
-    }
     case SK_LSTM:{
       SK_ERROR("LSTM not implemented.");
       break;

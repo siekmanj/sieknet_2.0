@@ -128,7 +128,7 @@ int main(){
   {
     printf("GRADIENT CHECK: ");
     size_t t = 5;
-    Network n = sk_create_network(test0);
+    Network n = sk_create_network(test1);
     Tensor x = create_tensor(SIEKNET_CPU, t, n.input_dimension);
     Tensor y = create_tensor(SIEKNET_CPU, t, n.layers[n.depth-1]->output.dims[1]);
 		tensor_fill_random(x, 0, 0.3);

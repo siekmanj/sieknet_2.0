@@ -7,12 +7,10 @@
 
 #define BUFFSIZE 2048
 
-static const char *sk_logistics[]           = {"sigmoid", "tanh", "relu", "linear", "softmax"};
-static const char *sk_layertypes[]          = {"feedforward", "recurrent", "lstm", "gru", "attention"};
-static const char *sk_layer_identifiers[]   = {"logistic", "size", "type", "input", "name"};
-static const char *sk_network_identifiers[] = {"input_dimension", "name", "input", "output"};
-
-typedef enum sk_token_type {NETWORK_ROOT, LAYER_ROOT, IDENTIFIER, VALUE} TokenType;
+//static const char *sk_logistics[]           = {"sigmoid", "tanh", "relu", "linear", "softmax"};
+//static const char *sk_layertypes[]          = {"feedforward", "recurrent", "lstm", "gru", "attention"};
+//static const char *sk_layer_identifiers[]   = {"logistic", "size", "type", "input", "name"};
+//static const char *sk_network_identifiers[] = {"input_dimension", "name", "input", "output"};
 
 static char *string_from_file(const char *filename){
   FILE *fp = fopen(filename, "rb");
@@ -31,17 +29,60 @@ static char *string_from_file(const char *filename){
   return ret;
 }
 
+int sk_parser_get_line(char **str, char *buf, size_t *len){
+  char *start = *str;
+  if(!str || !*str || **str == '\0')
+    return 0;
+
+  while(**str != '\n' && **str != '\0') (*str)++;
+  *len = *str - start;
+
+  memcpy(buf, start, *len);
+  buf[*len] = '\0';
+
+  if(**str != '\0')
+    (*str)++;
+  return 1;
+}
+
+static size_t layers_in_cfg(char *str){
+  char buff[BUFFSIZE];
+  size_t len;
+  size_t num_layers = 0;
+  while(sk_parser_get_line(&str, buff, &len)){
+    if(sk_layer_parse_identifier(buff) != -1)
+      num_layers++;
+  }
+  return num_layers;
+}
+
+
 static int is_filler(char c){
   if(c < 48 && (c != '\n' && c != ' '))
     return 1;
   if(c > 57 && c < 65)
     return 1;
-  if(c > 90 && c < 97 && c != '_'/* && c != '[' && c != ']'*/)
+  if(c > 90 && c < 97 && c != '_' && c != '[' && c != ']')
     return 1;
   if(c > 123)
     return 1;
   return 0;
 }
+
+void sk_parser_strip_string(char *str){
+  size_t len = strlen(str) + 1;
+  char *tmp = (char*)calloc(len, sizeof(char));
+  size_t idx = 0;
+  for(int i = 0; i < strlen(str); i++)
+    if(!is_filler(str[i]))
+      tmp[idx++] = tolower(str[i]);
+  
+  memset(str, '\0', strlen(str)+1);
+  memcpy(str, tmp, strlen(tmp)+1);
+  free(tmp);
+}
+
+#if 0
 
 static int contains(const char *str, const char **arr, size_t len){
   for(int i = 0; i < len; i++){
@@ -69,34 +110,9 @@ static TokenType get_token_type(const char *token){
   return VALUE;
 }
 
-static void strip_string(char *str){
-  size_t len = strlen(str) + 1;
-  char *tmp = (char*)calloc(len, sizeof(char));
-  size_t idx = 0;
-  for(int i = 0; i < strlen(str); i++)
-    if(!is_filler(str[i]))
-      tmp[idx++] = tolower(str[i]);
-  
-  memset(str, '\0', strlen(str)+1);
-  memcpy(str, tmp, strlen(tmp)+1);
-  free(tmp);
-}
+#endif
 
-static size_t layers_in_cfg(const char *str){
-  size_t num_layers = 0;
-  const char *tmp = str;
-  char buff[BUFFSIZE];
-  memset(buff, '\0', BUFFSIZE);
-  while(sscanf(tmp, "%s", buff) != EOF){
-    if(!strcmp(buff, "layer"))
-      num_layers++;
-    
-    tmp += sizeof(char) * strlen(buff) + 1;
-    memset(buff, '\0', BUFFSIZE);
-  }
-  return num_layers;
-}
-
+#if 0
 static void parse_layer_attribute(Layer *l, char *identifier, char **remaining){
 #if 0
   sk_parse_layer_attribute(l, identifier, remaining);
@@ -239,6 +255,7 @@ static void parse_network_attribute(Network *n, char *identifier, char **remaini
   else
     SK_ERROR("unexpected EOF while parsing identifier '%s'.", identifier);
 }
+#endif
 
 void parse_network(Network *n, const char *skfile){
   if(!skfile)
@@ -250,8 +267,8 @@ void parse_network(Network *n, const char *skfile){
     SK_ERROR("could not open file '%s'", skfile);
 
   char *src = string_from_file(skfile);
-  strip_string(src);
   size_t num_layers = layers_in_cfg(src);
+  printf("layers present: %lu\n", num_layers);
 
   Layer **layers = malloc(sizeof(Layer*) * num_layers);
   for(int i = 0; i < num_layers; i++){
@@ -261,6 +278,14 @@ void parse_network(Network *n, const char *skfile){
     layers[i]->weight_initialization = -1;
     layers[i]->size = 0;
   }
+
+  for(int i = 0; i < num_layers+1; i++){
+
+  }
+
+  exit(1);
+
+#if 0
 
   int layeridx = -1;
   
@@ -352,6 +377,7 @@ void parse_network(Network *n, const char *skfile){
   if(!n->name)
     SK_ERROR("could not find 'name' attribute for network.");
 
+#endif
   free(src);
 }
 
