@@ -53,7 +53,9 @@ typedef struct layer_{
 int contains_layer(Layer **, Layer *, size_t);
 
 SK_LAYER_TYPE sk_layer_parse_identifier(const char *);
+SK_LOGISTIC sk_layer_parse_logistic(const char *);
 
+void sk_layer_parse(Layer *, char *);
 void sk_layer_allocate(Layer *);
 void sk_layer_initialize(Layer *, Tensor, Tensor);
 

@@ -4,7 +4,7 @@
 #include <layer.h>
 #include <tensor.h>
 
-static const char sk_fc_layer_identifier[] = "[feedforward layer]";
+static const char sk_fc_layer_identifier[] = "[fully_connected layer]";
 
 void sk_fc_layer_parse(Layer *, const char *);
 

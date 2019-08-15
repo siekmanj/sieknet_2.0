@@ -3,6 +3,7 @@
 #include <conf.h>
 #include <layer.h>
 #include <tensor.h>
+#include <parser.h>
 
 #include <fc_layer.h>
 
@@ -22,13 +23,25 @@ SK_LAYER_TYPE sk_layer_parse_identifier(const char *line){
   return -1;
 }
 
-void sk_layer_parse(Layer *l, char *identifier, char **remaining){
+SK_LOGISTIC sk_layer_parse_logistic(const char *line){
+  if(!strcmp(line, "sigmoid"))
+    return SK_SIGMOID;
+  if(!strcmp(line, "tanh"))
+    return SK_TANH;
+  return -1;
+}
+
+void sk_layer_parse(Layer *l, char *src){
+  char first_line[1024];
+  sk_parser_get_line(&src, first_line, NULL);
+  l->layertype = sk_layer_parse_identifier(first_line);
+
   switch(l->layertype){
     case SK_FF:
-      //sk_fc_layer_parse_attribute(l, identifier, remaining);
+      sk_fc_layer_parse(l, src);
       break;
     default:{
-      SK_ERROR("Parse not implemented for this layer type.");
+      SK_ERROR("Parse not implemented for this layer type: %d.", l->layertype);
     }
   }
 }
@@ -50,6 +63,10 @@ void sk_layer_allocate(Layer *l){
       SK_ERROR("Attention not implemented.");
       break;
     }
+    default:{
+      SK_ERROR("Not implemented.");
+      break;
+    }
   }
 }
 
@@ -68,6 +85,10 @@ void sk_layer_initialize(Layer *l, Tensor p, Tensor g){
     }
     case SK_ATT:{
       SK_ERROR("Attention not implemented.");
+      break;
+    }
+    default:{
+      SK_ERROR("Not implemented.");
       break;
     }
   }

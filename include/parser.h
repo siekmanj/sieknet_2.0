@@ -7,7 +7,11 @@
 
 #include <sieknet.h>
 
+int sk_parser_find_int(const char *, char *, int *);
 
-//Network parse_network(const char *);
+int sk_parser_find_string(const char *, char *, char **);
 
+int sk_parser_find_strings(const char *, char *, char ***, size_t *);
+
+int sk_parser_get_line(char **, char *, size_t *);
 #endif

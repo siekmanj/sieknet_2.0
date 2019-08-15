@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <locale.h>
 
 #include <sieknet.h>
 #include <tensor.h>
@@ -10,21 +11,7 @@ const char* test2= "model/three.sk";
 
 int main(){
   srand(0);
-
-#if 0
-  {
-    Tensor a = create_tensor(SIEKNET_CPU, 10, 1);
-    Tensor b = create_tensor(SIEKNET_CPU, 1, 4);
-    tensor_fill_random(a, 0, 1);
-    tensor_fill_random(b, 0, 1);
-    tensor_print(a);
-    tensor_print(b);
-    Tensor c = create_tensor(SIEKNET_CPU, 10, 4);
-    tensor_mmult(a, b, c);
-    tensor_print(c);
-    //exit(1);
-  }
-#endif
+  setlocale(LC_NUMERIC, "");
 
   {
     printf("TRANSPOSE_TEST: ");
@@ -148,30 +135,26 @@ int main(){
       float epsilon = 1e-4;
       float predicted_grad = p_grad[i];
 
-      if(predicted_grad != 0){
-        params[i] += epsilon;
+      params[i] += epsilon;
 
-        sk_forward(&n, x);
-        float c1 = sk_cost(&n, n.layers[n.depth-1], y, SK_QUADRATIC_COST);
-				n.t = 0;
-        sk_wipe(&n);
+      sk_forward(&n, x);
+      float c1 = sk_cost(&n, n.layers[n.depth-1], y, SK_QUADRATIC_COST);
+      n.t = 0;
+      sk_wipe(&n);
 
-        params[i] -= 2 * epsilon;
-        sk_forward(&n, x);
-        float c2 = sk_cost(&n, n.layers[n.depth-1], y, SK_QUADRATIC_COST);
-				n.t = 0;
-        sk_wipe(&n);
+      params[i] -= 2 * epsilon;
+      sk_forward(&n, x);
+      float c2 = sk_cost(&n, n.layers[n.depth-1], y, SK_QUADRATIC_COST);
+      n.t = 0;
+      sk_wipe(&n);
 
-        float empirical_grad = (c1 - c2) / (2 * epsilon);
-        norm += (predicted_grad - empirical_grad) * (predicted_grad - empirical_grad);
-        count++;
-        params[i] += epsilon;
-        //printf("err: %d: %f - (%f - %f) / (2 * %f) = %f\n", i, predicted_grad, c1, c2, epsilon, predicted_grad - empirical_grad);
-        //getchar();
-      }
+      float empirical_grad = (c1 - c2) / (2 * epsilon);
+      norm += (predicted_grad - empirical_grad) * (predicted_grad - empirical_grad);
+      count++;
+      params[i] += epsilon;
+
 			tensor_zero(n.param_grad);
     }
-    printf("%s off: %lu, %s off: %lu\n", n.layers[0]->name, n.layers[0]->param_idx, n.layers[1]->name, n.layers[1]->param_idx);
     norm /= count;
     if(norm < 1e-3)
       printf("PASSED (norm %f)\n", norm);
@@ -206,7 +189,7 @@ int main(){
   tensor_print(c);
 
 #endif
-  Network n = sk_create_network(test0);
+  //Network n = sk_create_network(test0);
 #if 0
 
   Tensor x1 = create_tensor(SIEKNET_CPU, n.input_dimension);

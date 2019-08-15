@@ -72,7 +72,6 @@ static inline int layer_comparator(const void *a, const void *b){
 }
 
 void build_network(Network *n){
-
  for(int i = 0; i < n->depth; i++)
    n->layers[i]->num_output_layers = 0;
 
