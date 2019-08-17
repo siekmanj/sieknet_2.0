@@ -28,6 +28,10 @@ SK_LOGISTIC sk_layer_parse_logistic(const char *line){
     return SK_SIGMOID;
   if(!strcmp(line, "tanh"))
     return SK_TANH;
+  if(!strcmp(line, "relu"))
+    return SK_RELU;
+  if(!strcmp(line, "softmax"))
+    return SK_SOFTMAX;
   return -1;
 }
 

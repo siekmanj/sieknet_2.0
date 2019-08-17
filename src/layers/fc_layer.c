@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <util.h>
 #include <conf.h>
 #include <tensor.h>
 #include <layer.h>
@@ -31,7 +30,7 @@ void sk_fc_layer_forward(Layer *l, size_t t){
   d->intermediate_grad.dims[0] = t + 1;
 
   /* Zero the output tensor for this timestep */
-  tensor_zero(y);
+  tensor_fill(y, 0.0f);
 
   /* Loop through all the input layers and do a matrix mult */
   for(int i = 0; i < l->num_input_layers; i++){

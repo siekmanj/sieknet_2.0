@@ -86,7 +86,7 @@ Network sk_create_network(const char *skfile){
 void sk_wipe(Network *n){
   for(int i = 0; i < n->depth; i++){
     //TODO: make this a member function
-    tensor_zero(n->layers[i]->loutput);
+    tensor_fill(n->layers[i]->loutput, 0.0f);
   }
 }
 
@@ -198,7 +198,7 @@ float sk_cost(Network *n, Layer *l, Tensor y, SK_COST_FN cost){
 static void sk_backward_pass(Network *n, int t){
   for(int i = n->depth-1; i >= 0; i--){
     n->layers[i]->backward(n->layers[i], t);
-    tensor_zero(get_subtensor(n->layers[i]->gradient, t));
+    tensor_fill(get_subtensor(n->layers[i]->gradient, t), 0.0f);
   }
 }
 

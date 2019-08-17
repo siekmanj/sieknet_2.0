@@ -3,15 +3,37 @@
 
 #include <sieknet.h>
 #include <tensor.h>
-#include <util.h>
 
-const char* test0= "model/one.sk";
-const char* test1= "model/two.sk";
-const char* test2= "model/three.sk";
+const char* test= "model/test.sk";
 
 int main(){
   srand(0);
   setlocale(LC_NUMERIC, "");
+
+  {
+    printf("TENSOR_COPY_TEST: ");
+    Tensor a = create_tensor(SIEKNET_CPU, 3, 4, 5);
+    Tensor b = create_tensor(SIEKNET_CPU, 3, 5, 4);
+    tensor_fill_random(a, 0, 1);
+    tensor_transpose(b, 0, 1);
+    tensor_copy(a, b);
+
+    int success = 1;
+    for(int i = 0; i < 3; i++){
+      for(int j = 0; j < 4; j++){
+        for(int k = 0; k < 5; k++){
+          if(tensor_at(a, i, j, k) != tensor_at(b, i, j, k))
+            success = 0;
+        }
+      }
+    }
+    if(success)
+      printf("PASSED\n");
+    else
+      printf("FAILED\n");
+    tensor_dealloc(a);
+    tensor_dealloc(b);
+  }
 
   {
     printf("TRANSPOSE_TEST: ");
@@ -115,11 +137,14 @@ int main(){
   {
     printf("GRADIENT CHECK: ");
     size_t t = 5;
-    Network n = sk_create_network(test1);
+    Network n = sk_create_network(test);
     Tensor x = create_tensor(SIEKNET_CPU, t, n.input_dimension);
     Tensor y = create_tensor(SIEKNET_CPU, t, n.layers[n.depth-1]->output.dims[1]);
 		tensor_fill_random(x, 0, 0.3);
 		tensor_fill_random(y, 0.5, 0.1);
+
+    for(int i = 0; i < n.depth; i++)
+      printf("layer '%s' logistic: %d\n", n.layers[i]->name, n.layers[i]->logistic);
 
     float norm = 0;
     size_t count = 0;
@@ -153,13 +178,15 @@ int main(){
       count++;
       params[i] += epsilon;
 
-			tensor_zero(n.param_grad);
+      printf("predicted grad vs observed grad: %f - %f = %f\n", predicted_grad, empirical_grad, predicted_grad - empirical_grad);
+
+			tensor_fill(n.param_grad, 0.0f);
     }
     norm /= count;
     if(norm < 1e-3)
-      printf("PASSED (norm %f)\n", norm);
+      printf("PASSED (norm %12.11f)\n", norm);
     else
-      printf("FAILED (norm %f)\n", norm);
+      printf("FAILED (norm %5.4f)\n", norm);
 
   }
 

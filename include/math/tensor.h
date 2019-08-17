@@ -2,6 +2,7 @@
 #define SIEKNET_TENSOR_H
 
 #include <conf.h>
+#include <math.h>
 
 typedef enum sk_device_ {SIEKNET_CPU, SIEKNET_GPU} TENSOR_DEVICE;
 typedef enum sk_tensor_ {TENSOR, SUBTENSOR, RESHAPE} TENSOR_TYPE;
@@ -18,9 +19,13 @@ typedef struct tensor_{
 
   TENSOR_DEVICE device;
   size_t data_offset;
+  size_t size;
 
   TENSOR_TYPE type;
 } Tensor;
+
+float uniform(float, float);
+float normal(float, float);
 
 #define create_tensor(device, ...) tensor_from_arr(device, (size_t[]){__VA_ARGS__}, sizeof((size_t[]){__VA_ARGS__})/sizeof(size_t))
 Tensor tensor_from_arr(TENSOR_DEVICE, size_t *, size_t);
@@ -38,7 +43,7 @@ Tensor tensor_to_subtensor(Tensor, size_t *, size_t);
 Tensor tensor_to_subtensor_reshape(Tensor, size_t, size_t *, size_t);
 
 #define tensor_at(tensor, ...) tensor_at_idx(tensor, (size_t[]){__VA_ARGS__}, sizeof((size_t[]){__VA_ARGS__})/sizeof(size_t))
-size_t tensor_flat_idx(Tensor, size_t *, size_t);
+float tensor_at_idx(Tensor, size_t *, size_t);
 
 void tensor_to(TENSOR_DEVICE, Tensor *);
 
@@ -46,14 +51,15 @@ float tensor_reduce_dot(const Tensor, const Tensor);
 
 void tensor_mmult(const Tensor, const Tensor, Tensor);
 
-
 void tensor_elementwise_add(const Tensor, const Tensor, Tensor);
 void tensor_elementwise_mul(const Tensor, const Tensor, Tensor);
 
 void tensor_transpose(Tensor, size_t, size_t);
 void tensor_fill_random(Tensor, float, float);
-void tensor_zero(Tensor);
+void tensor_fill(Tensor, float);
 void tensor_copy(Tensor, Tensor);
+
+Tensor tensor_clone(TENSOR_DEVICE, Tensor);
 
 void tensor_sigmoid_precompute(Tensor, Tensor);
 void tensor_tanh_precompute(Tensor, Tensor);

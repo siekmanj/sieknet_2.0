@@ -4,12 +4,45 @@
 #include <math.h>
 
 #include <tensor.h>
-#include <util.h>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+/*
+ * Returns a number from uniform distribution bounded
+ * by the given parmeters.
+ */
+float uniform(float lowerbound, float upperbound){
+	return lowerbound + (upperbound - lowerbound) * ((float)rand()/RAND_MAX);
+}
+
+/*
+ * Returns a number from a normal distribution defined
+ * by the given parameters using the Box-Muller transform.
+ */
+float normal(float mean, float std){
+	float u1 = uniform(1e-6, 1);
+	float u2 = uniform(1e-6, 1);
+	float norm = sqrt(-2 * log(u1)) * cos(2 * M_PI * u2);
+	return mean + norm * std;
+}
+
+/* 
+ * Returns the raw pointer to memory contained by tensor.
+ */
 float *tensor_raw(Tensor t){
+#ifdef SIEKNET_DEBUG
+  if(t.device != SIEKNET_CPU)
+    SK_ERROR("Cannot provide memory address of tensor not on CPU.");
+#endif
   return &((float*)t.data)[t.data_offset];
 }
 
+/*
+ * Computes the index offset of a location in the tensor's
+ * memory using 'arr' as an array of indices.
+ */
 size_t tensor_flat_idx(Tensor t, size_t *arr, size_t len){
   size_t idx = 0;
 
@@ -20,6 +53,9 @@ size_t tensor_flat_idx(Tensor t, size_t *arr, size_t len){
   return idx;
 }
 
+/*
+ * Returns the element at the provided index of a tensor.
+ */
 float tensor_at_idx(Tensor t, size_t *arr, size_t len){
   if(t.device == SIEKNET_CPU){
     return tensor_raw(t)[tensor_flat_idx(t, arr, len)];
@@ -30,37 +66,74 @@ float tensor_at_idx(Tensor t, size_t *arr, size_t len){
   return -1;
 }
 
+/*
+ * Fills the tensor's memory with random (normally distributed)
+ * numbers.
+ */
 void tensor_fill_random(Tensor t, float mean, float std){
-  float *reals = (float*)t.data;
-  size_t num_reals = 1;
-  
-  for(int i = 0; i < t.n; i++)
-    num_reals *= t.dims[i];
+  size_t pos[t.n];
+  memset(pos, '\0', sizeof(size_t)*t.n);
 
-  for(int i = 0; i < num_reals; i++)
-    reals[i] = normal(mean, std);
-}
-
-void tensor_zero(Tensor t){
-  if(t.device == SIEKNET_CPU){
-    size_t len = 1;
-    for(int i = 0; i < t.n; i++)
-      len *= t.dims[i];
-    float *x = tensor_raw(t);
-    for(int i = 0; i < len; i++)
-      x[i] = 0.0f;
-
-  }else{
-    SK_ERROR("Tensor zeroing not implemented on GPU.");
+  for(int i = 0; i < t.size; i++){
+    tensor_raw(t)[tensor_flat_idx(t, pos, t.n)] = normal(mean, std);
+    pos[t.n - 1]++;
+    for(int j = t.n - 1; j > 0; j--){
+      if(!(pos[j] % t.dims[j])){
+        pos[j-1]++;
+        pos[j] = 0;
+      }else break;
+    }
   }
 }
 
-Tensor tensor_clone(Tensor src){
-  Tensor ret;
+/*
+ * Fills the tensor's memory with the specified value.
+ */
+void tensor_fill(Tensor t, float val){
+  if(t.device == SIEKNET_CPU){
+    size_t pos[t.n];
+    memset(pos, '\0', sizeof(size_t)*t.n);
+
+    for(int i = 0; i < t.size; i++){
+      tensor_raw(t)[tensor_flat_idx(t, pos, t.n)] = val;
+      pos[t.n - 1]++;
+      for(int j = t.n - 1; j > 0; j--){
+        if(!(pos[j] % t.dims[j])){
+          pos[j-1]++;
+          pos[j] = 0;
+        }else break;
+      }
+    }
+  }else
+    SK_ERROR("Not supported.");
+}
+
+/*
+ * Copies a tensor's dimensions and stride layout, but not
+ * its memory.
+ */
+Tensor tensor_clone(TENSOR_DEVICE device, Tensor src){
+  Tensor ret = {0};
+  ret.n = src.n;
+  ret.dims = malloc(ret.n * sizeof(size_t));
+  ret.strides = malloc(ret.n * sizeof(size_t));
+  ret.size = src.size;
+  ret.type = TENSOR;
+  ret.data_offset = 0;
+  memcpy(ret.dims, src.dims, src.n * sizeof(size_t));
+  memcpy(ret.strides, src.strides, src.n * sizeof(size_t));
+
+  if(device == SIEKNET_CPU)
+    ret.data = calloc(ret.size, sizeof(float));
+  else
+    SK_ERROR("Not implemented.");
 
   return ret;
 }
 
+/*
+ * Copies the contents of a tensor into another tensor.
+ */
 void tensor_copy(Tensor src, Tensor dest){
 
   if(src.device != dest.device)
@@ -77,18 +150,29 @@ void tensor_copy(Tensor src, Tensor dest){
   for(int i = 0; i < src.n; i++)
     len *= src.dims[i];
 
-  if(src.device == SIEKNET_CPU){
-    float *src_mem  = tensor_raw(src);
-    float *dest_mem = tensor_raw(dest);
+  size_t pos[src.n];
+  memset(pos, '\0', sizeof(size_t)*src.n);
 
-    for(int i = 0; i < len; i++)
-      dest_mem[i] = src_mem[i];
-    
+  if(src.device == SIEKNET_CPU){
+    for(int i = 0; i < src.size; i++){
+      tensor_raw(dest)[tensor_flat_idx(dest, pos, dest.n)] = tensor_raw(src)[tensor_flat_idx(src, pos, src.n)];
+      pos[src.n - 1]++;
+      for(int j = src.n - 1; j > 0; j--){
+        if(!(pos[j] % src.dims[j])){
+          pos[j-1]++;
+          pos[j] = 0;
+        }else break;
+      }
+    }
   }else{
     SK_ERROR("Not implemented.");
   }
 }
 
+/*
+ * Performs the sigmoid logistic function on a tensor. Also
+ * computes the intermediate gradient (derivative of sigmoid).
+ */
 void tensor_sigmoid_precompute(Tensor t, Tensor d){
   if(t.n > 1)
     SK_ERROR("Logistics not supported for non-1d tensors.");
@@ -101,57 +185,99 @@ void tensor_sigmoid_precompute(Tensor t, Tensor d){
       SK_ERROR("Tensor dimensions do not match on dimension %d: %lu vs %lu\n", i, t.dims[i], d.dims[i]);
 
   if(t.device == SIEKNET_CPU){
-    float *z_mem = tensor_raw(t);
-    float *d_mem = d.data != NULL ? tensor_raw(d) : NULL;
-    size_t z_str = t.strides[0];
-    size_t d_str = d.strides[0];
+    size_t pos[t.n];
+    memset(pos, '\0', sizeof(size_t)*t.n);
 
-    for(int i = 0; i < t.dims[0]; i++){
-      float a = 1 / (1 + exp(-z_mem[i * z_str]));
-      z_mem[i * z_str] = a;
-      if(d_mem)
-        d_mem[i * d_str] = a * (1 - a);
+    for(int i = 0; i < t.size; i++){
+      float *t_raw = &tensor_raw(t)[tensor_flat_idx(t, pos, t.n)];
+      float *d_raw = &tensor_raw(d)[tensor_flat_idx(d, pos, d.n)];
+      *t_raw = 1 / (1 + exp(-*t_raw));
+      *d_raw = *t_raw * (1 - *t_raw);
+
+      pos[t.n - 1]++;
+      for(int j = t.n - 1; j > 0; j--){
+        if(!(pos[j] % t.dims[j])){
+          pos[j-1]++;
+          pos[j] = 0;
+        }else break;
+      }
     }
-
-  }else if(t.device == SIEKNET_GPU){
+  }else
     SK_ERROR("Not implemented.");
-  }else{
-    SK_ERROR("Invalid device.");
-  }
 }
 
+/*
+ * Performs the tanh logistic function on a tensor. Also
+ * computes the intermediate gradient (derivative of tanh).
+ */
 void tensor_tanh_precompute(Tensor t, Tensor d){
+  if(d.data != NULL && t.n != d.n)
+    SK_ERROR("If derivative tensor is supplied, dimensions must match. T dims: %lu, d dims: %lu", t.n, d.n);
+
+  for(int i = 0; i < t.n && d.data != NULL; i++)
+    if(t.dims[i] != d.dims[i])
+      SK_ERROR("Tensor dimensions do not match on dimension %d: %lu vs %lu\n", i, t.dims[i], d.dims[i]);
 
   if(t.device == SIEKNET_CPU){
+    size_t pos[t.n];
+    memset(pos, '\0', sizeof(size_t)*t.n);
 
-  }else if(t.device == SIEKNET_GPU){
+    for(int i = 0; i < t.size; i++){
+      float *t_raw = &tensor_raw(t)[tensor_flat_idx(t, pos, t.n)];
+      float *d_raw = &tensor_raw(d)[tensor_flat_idx(d, pos, d.n)];
+      *t_raw = (exp(*t_raw) - exp(-*t_raw)) / (exp(*t_raw) + exp(-*t_raw));
+      *d_raw = 1 - (*t_raw * *t_raw);
+
+      pos[t.n - 1]++;
+      for(int j = t.n - 1; j > 0; j--){
+        if(!(pos[j] % t.dims[j])){
+          pos[j-1]++;
+          pos[j] = 0;
+        }else break;
+      }
+    }
+  }else
     SK_ERROR("Not implemented.");
-  }else{
-    SK_ERROR("Invalid device.");
-  }
 }
 
+/*
+ * Performs the relu nonlinearity on a tensor. Also
+ * computes the intermediate gradient (derivative of relu)
+ */
 void tensor_relu_precompute(Tensor t, Tensor d){
-  if(t.device == SIEKNET_CPU){
+  if(d.data != NULL && t.n != d.n)
+    SK_ERROR("If derivative tensor is supplied, dimensions must match. T dims: %lu, d dims: %lu", t.n, d.n);
 
-  }else if(t.device == SIEKNET_GPU){
+  for(int i = 0; i < t.n && d.data != NULL; i++)
+    if(t.dims[i] != d.dims[i])
+      SK_ERROR("Tensor dimensions do not match on dimension %d: %lu vs %lu\n", i, t.dims[i], d.dims[i]);
+
+  if(t.device == SIEKNET_CPU){
+    size_t pos[t.n];
+    memset(pos, '\0', sizeof(size_t)*t.n);
+
+    for(int i = 0; i < t.size; i++){
+      float *t_raw = &tensor_raw(t)[tensor_flat_idx(t, pos, t.n)];
+      float *d_raw = &tensor_raw(d)[tensor_flat_idx(d, pos, d.n)];
+      *t_raw = *t_raw > 0 ? *t_raw : 0;
+      *d_raw = *d_raw > 0 ? 1 : 0;
+
+      pos[t.n - 1]++;
+      for(int j = t.n - 1; j > 0; j--){
+        if(!(pos[j] % t.dims[j])){
+          pos[j-1]++;
+          pos[j] = 0;
+        }else break;
+      }
+    }
+  }else
     SK_ERROR("Not implemented.");
-  }else{
-    SK_ERROR("Invalid device.");
-  }
 }
 
-void tensor_selu_precompute(Tensor t, Tensor d){
-  if(t.device == SIEKNET_CPU){
-
-  }else if(t.device == SIEKNET_GPU){
-    SK_ERROR("Not implemented.");
-  }else{
-    SK_ERROR("Invalid device.");
-  }
-}
-
-
+/*
+ * Performs the softmax nonlinearity on a tensor. Also
+ * computes the intermediate gradient (derivative of softmax)
+ */
 void tensor_softmax_precompute(Tensor t, Tensor d){
   if(t.device == SIEKNET_CPU){
 
@@ -162,8 +288,11 @@ void tensor_softmax_precompute(Tensor t, Tensor d){
   }
 }
 
+/*
+ * Returns the euclidean cost given two column vectors/tensors,
+ * and stores the gradient of the cost function in a third tensor.
+ */
 float tensor_quadratic_cost(Tensor o, Tensor y, Tensor grad){
-	//printf("****************** DOING COST ********************\n");
   if(y.device != o.device || y.device != grad.device)
     SK_ERROR("Devices must match.");
 
@@ -195,6 +324,10 @@ float tensor_quadratic_cost(Tensor o, Tensor y, Tensor grad){
   }
 }
 
+/*
+ * Returns the cross-entropy cost given two column vectors/tensors,
+ * and stores the gradient of the cost function in a third tensor.
+ */
 float tensor_cross_entropy_cost(Tensor y, Tensor label, Tensor grad){
   if(y.device != label.device || y.device != grad.device)
     SK_ERROR("Devices must match.");
@@ -216,6 +349,11 @@ float tensor_cross_entropy_cost(Tensor y, Tensor label, Tensor grad){
   }
 }
 
+/*
+ * Performs an O(1) transpose on a tensor by flipping the strides.
+ * Does not rearrange memory in any way - may lead to unexpected
+ * slowdowns as a result.
+ */
 void tensor_transpose(Tensor t, size_t dim1, size_t dim2){
   if(dim1 > t.n || dim2 > t.n)
     SK_ERROR("Invalid axes (%lu, %lu) for tensor with dimension %lu.", dim1, dim2, t.n);
@@ -225,6 +363,9 @@ void tensor_transpose(Tensor t, size_t dim1, size_t dim2){
 
 }
 
+/*
+ * Calculates the stride for iterating over a given axis.
+ */
 static size_t tensor_axis_stride(Tensor t, size_t axis){
   size_t stride = 1;
   for(int i = 0; i < axis; i++)
@@ -233,6 +374,10 @@ static size_t tensor_axis_stride(Tensor t, size_t axis){
 }
 
 
+/*
+ * Retrieves a subtensor from a tensor. Does not allocate new 
+ * memory - just recalculates offsets of original memory.
+ */
 static size_t tmp_dim = 1;
 static size_t tmp_str = 0;
 Tensor tensor_to_subtensor(Tensor t, size_t *arr, size_t len){
@@ -253,10 +398,16 @@ Tensor tensor_to_subtensor(Tensor t, size_t *arr, size_t len){
     ret.data_offset  += tensor_flat_idx(t, arr, len);
   }
   ret.type = SUBTENSOR;
+  ret.size = ret.strides[0] * ret.dims[0];
 
   return ret;
 }
 
+/*
+ * Retrieves a subtensor from a tensor, creating a new shape in
+ * the process. Allocates new memory for dimensions and strides,
+ * does not allocate new memory for the tensor data itself.
+ */
 Tensor tensor_to_subtensor_reshape(Tensor t, size_t offset, size_t *arr, size_t len){
   Tensor ret       = t;
   ret.n            = len;
@@ -272,13 +423,14 @@ Tensor tensor_to_subtensor_reshape(Tensor t, size_t offset, size_t *arr, size_t 
 
   for(int i = 0; i < len; i++)
     ret.strides[i] = tensor_axis_stride(ret, ret.n - i - 1);
+  ret.size = ret.strides[0] * ret.dims[0];
 
   return ret;
 }
 
 /*
- * TODO: Tensor broadcasting?
- * TODO: GPU support
+ * Performs an elementwise addition on two tensors and stores the result
+ * in a third tensor.
  */
 void tensor_elementwise_add(const Tensor a, const Tensor b, Tensor c){
   if(a.n != b.n || a.n != c.n)
@@ -315,6 +467,10 @@ void tensor_elementwise_add(const Tensor a, const Tensor b, Tensor c){
   }
 }
 
+/*
+ * Performs an elementwise multiplication on two tensors and stores the result
+ * in a third tensor.
+ */
 void tensor_elementwise_mul(const Tensor a, const Tensor b, Tensor c){
   if(a.n != b.n || a.n != c.n)
     SK_ERROR("Tensors must have same number of dims (%lu vs %lu vs %lu).", a.n, b.n, c.n);
@@ -351,9 +507,11 @@ void tensor_elementwise_mul(const Tensor a, const Tensor b, Tensor c){
 }
 
 
+/*
+ * Performs a matrix multiplication given two 2d tensors, 
+ * storing the result in a third 2d tensor.
+ */
 void tensor_mmult(const Tensor a, const Tensor b, Tensor c){
-  //tensor_print(a);
-  //tensor_print(b);
 #ifdef SIEKNET_DEBUG
   if(a.n > 2 || b.n > 2 || c.n > 2)
     SK_ERROR("Dimensions of all matrices must be 2 or fewer - got dimensions %lu, %lu, %lu.\n", a.n, b.n, c.n);
@@ -391,8 +549,6 @@ void tensor_mmult(const Tensor a, const Tensor b, Tensor c){
     SWAP(left_stride_b, right_stride_b);
   }
 
-  //printf("multiplying (%lu x %lu) * (%lu x %lu) = (%lu x %lu)\n", left_dim_a, right_dim_a, left_dim_b, right_dim_b, left_dim_c, right_dim_c);
-
 #ifdef SIEKNET_DEBUG
   if(right_dim_a != left_dim_b)
     SK_ERROR("Tensor dimensions must match - got (%lu x %lu) * (%lu x %lu).", left_dim_a, right_dim_a, left_dim_b, right_dim_b);
@@ -407,18 +563,13 @@ void tensor_mmult(const Tensor a, const Tensor b, Tensor c){
 
   for(int i = 0; i < left_dim_a; i++){
     for(int j = 0; j < right_dim_b; j++){
-      //raw_c[i * left_stride_c + j * right_stride_c] = 0.0f;
-      //printf("raw_c[%d,%d]: %f\n", i, j, raw_c[i * left_stride_c + j * right_stride_c]);
       for(int k = 0; k < left_dim_b; k++){
         float a_ik = raw_a[i * left_stride_a  + k * right_stride_a];
         float b_jk = raw_b[j * right_stride_b + k * left_stride_b];
         raw_c[i * left_stride_c + j * right_stride_c] += a_ik * b_jk;
-        //printf("(%d, %d)[%d] += %f * %f\n", i, j, k, a_ik, b_jk);
-        //getchar();
       }
     }
   }
-  //getchar();
 }
 
 void arr_to_tensor(float *buff, size_t bufflen, Tensor t, size_t *arr, size_t len){
@@ -436,6 +587,9 @@ void arr_to_tensor(float *buff, size_t bufflen, Tensor t, size_t *arr, size_t le
   }
 }
 
+/* 
+ * Creates a new tensor given an input array of shapes.
+ */
 Tensor tensor_from_arr(TENSOR_DEVICE device, size_t *dimensions, size_t num_dimensions){
   size_t num_elements = 1;
   for(int i = 0; i < num_dimensions; i++)
@@ -458,9 +612,13 @@ Tensor tensor_from_arr(TENSOR_DEVICE device, size_t *dimensions, size_t num_dime
   for(int i = 0; i < ret.n; i++){
     ret.strides[i] = tensor_axis_stride(ret, ret.n - i - 1);
   }
+  ret.size = ret.strides[0] * ret.dims[0];
   return ret;
 }
 
+/*
+ * Deallocates a tensor from the heap.
+ */
 void tensor_dealloc(Tensor t){
   switch(t.type){
     case TENSOR:{
@@ -483,12 +641,15 @@ void tensor_dealloc(Tensor t){
   }
 }
 
+/*
+ * Pretty-prints a tensor to the terminal.
+ */
 void tensor_print(Tensor t){
   printf("Tensor: (");
   for(int i = 0; i < t.n; i++){
     printf("%lu", t.dims[i]);
     if(i < t.n - 1) printf(" x ");
-    else printf(")\n");
+    else printf(") - %lu reals\n", t.size);
   }
 
   size_t pos[t.n];
