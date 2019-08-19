@@ -6,6 +6,7 @@
 #include <parser.h>
 
 #include <fc_layer.h>
+#include <lstm_layer.h>
 
 int sk_contains_layer(Layer **arr, Layer *comp, size_t arrlen){
   for(int i = 0; i < arrlen; i++){
@@ -16,10 +17,12 @@ int sk_contains_layer(Layer **arr, Layer *comp, size_t arrlen){
 }
 
 SK_LAYER_TYPE sk_layer_parse_identifier(const char *line){
-  if(!strcmp(line, sk_fc_layer_identifier))
+  if(!line)
+    SK_ERROR("Cannot parse null pointer.");
+  else if(!strcmp(line, sk_fc_layer_identifier))
     return SK_FF;
-  //if(!strcmp(buff, sk_lstm_layer_identifier))
-  //  return SK_LSTM;
+  if(!strcmp(line, sk_lstm_layer_identifier))
+    return SK_LSTM;
   return -1;
 }
 
@@ -44,6 +47,9 @@ void sk_layer_parse(Layer *l, char *src){
     case SK_FF:
       sk_fc_layer_parse(l, src);
       break;
+    case SK_LSTM:
+      sk_lstm_layer_parse(l, src);
+      break;
     default:{
       SK_ERROR("Parse not implemented for this layer type: %d.", l->layertype);
     }
@@ -55,22 +61,18 @@ void sk_layer_allocate(Layer *l){
     case SK_FF:
       sk_fc_layer_allocate(l);
       break;
-    case SK_LSTM:{
-      SK_ERROR("LSTM not implemented.");
+    case SK_LSTM:
+      sk_lstm_layer_allocate(l);
       break;
-    }
-    case SK_GRU:{
+    case SK_GRU:
       SK_ERROR("GRU not implemented.");
       break;
-    }
-    case SK_ATT:{
+    case SK_ATT:
       SK_ERROR("Attention not implemented.");
       break;
-    }
-    default:{
+    default:
       SK_ERROR("Not implemented.");
       break;
-    }
   }
 }
 
@@ -79,10 +81,9 @@ void sk_layer_initialize(Layer *l, Tensor p, Tensor g){
     case SK_FF:
       sk_fc_layer_initialize(l, p, g);
       break;
-    case SK_LSTM:{
-      SK_ERROR("LSTM not implemented.");
+    case SK_LSTM:
+      sk_lstm_layer_initialize(l, p, g);
       break;
-    }
     case SK_GRU:{
       SK_ERROR("GRU not implemented.");
       break;

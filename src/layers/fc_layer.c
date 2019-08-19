@@ -23,7 +23,6 @@ typedef struct fc_data_{
 void sk_fc_layer_forward(Layer *l, size_t t){
   FC_layer_data *d = (FC_layer_data*)l->data;
 
-  Tensor b = d->bias;
   Tensor y = get_subtensor(l->output, t);
   Tensor dy = get_subtensor(d->intermediate_grad, t);
 
@@ -47,7 +46,7 @@ void sk_fc_layer_forward(Layer *l, size_t t){
     tensor_transpose(w, 0, 1);
   }
 	/* Elementwise-add the bias to the output */
-  tensor_elementwise_add(b, y, y);
+  tensor_elementwise_add(d->bias, y, y);
   l->nonlinearity(y, dy);
 }
 
@@ -71,17 +70,16 @@ void sk_fc_layer_backward(Layer *l, size_t t){
 
     Tensor x  = {0};
     Tensor dx = {0};
-    if(in->rank >= l->rank){ // If this is a recurrent connection
-      if(t > 0){             // If there exists a t-1th output
-        x = get_subtensor(in->output, t-1);
-        if(in->gradient.data)
-          dx = get_subtensor(in->gradient, t-1);
-      }else continue;
-    }else{
-      x = get_subtensor(in->output, t);
+
+    int target_t = in->rank >= l->rank ? t - 1 : t;
+
+    if(target_t >= 0){
+      x = get_subtensor(in->output, target_t);
+
       if(in->gradient.data)
-        dx = get_subtensor(in->gradient, t);
-    }
+        dx = get_subtensor(in->gradient, target_t);
+      
+    }else continue;
 
     /* Compute weight gradients */
     tensor_mmult(x, g, dw); // dW = x * g
@@ -94,6 +92,40 @@ void sk_fc_layer_backward(Layer *l, size_t t){
   /* Compute bias gradients */
   Tensor db = d->bias_grad;
   tensor_elementwise_add(g, db, db);
+}
+
+/*
+ * Parses the attributes of a fully-connected layer from
+ * an excerpt of a config file.
+ */
+void sk_fc_layer_parse(Layer *l, char *src){
+
+  char *name;
+  if(!sk_parser_find_string("name", src, &name))
+    SK_ERROR("Unable to parse fc-layer attribute 'name'.");
+
+  int size;
+  if(!sk_parser_find_int("size", src, &size))
+    SK_ERROR("Unable to parse fc-layer attribute 'size' for layer '%s'.\n", name);
+
+  size_t num_names = 0;
+  char **input_names;
+  sk_parser_find_strings("input", src, &input_names, &num_names);
+
+  SK_LOGISTIC logistic;
+  char *logistic_src = NULL;
+  if(sk_parser_find_string("logistic", src, &logistic_src))
+    logistic = sk_layer_parse_logistic(logistic_src);
+  else
+    logistic = SK_SIGMOID;
+  if(logistic_src)
+    free(logistic_src);
+
+  l->size = size;
+  l->input_names = input_names;
+  l->logistic = logistic;
+  l->num_input_layers = num_names;
+  l->name = name;
 }
 
 /*
@@ -124,68 +156,13 @@ void sk_fc_layer_allocate(Layer *l){
 }
 
 /*
- * Parses the attributes of a fully-connected layer from
- * an excerpt of a config file.
- */
-void sk_fc_layer_parse(Layer *l, char *src){
-
-  int size;
-  sk_parser_find_int("size", src, &size);
-
-  char *name;
-  if(!sk_parser_find_string("name", src, &name))
-    SK_ERROR("Unable to parse fc-layer attribute 'name'.");
-
-  size_t num_names = 0;
-  char **input_names;
-  sk_parser_find_strings("input", src, &input_names, &num_names);
-
-  SK_LOGISTIC logistic;
-  char *logistic_src;
-  if(sk_parser_find_string("logistic", src, &logistic_src))
-    logistic = sk_layer_parse_logistic(logistic_src);
-  else
-    logistic = SK_SIGMOID;
-  free(logistic_src);
-
-  l->size = size;
-  l->input_names = input_names;
-  l->logistic = logistic;
-  l->num_input_layers = num_names;
-  l->name = name;
-}
-
-/*
  * Performs weight initialization, subtensoring from network
  * parameter/parameter gradient tensors.
  */
 void sk_fc_layer_initialize(Layer *l, Tensor p, Tensor g){
-  /* 
-   * Perform weight initialization according to the desired scheme. 
-   * Default is Xavier initialization.
-   */
   size_t input_dim = 0;
   for(int i = 0; i < l->num_input_layers; i++)
     input_dim += l->input_layers[i]->size;
-  switch(l->weight_initialization){
-    case SK_XAVIER:{
-      float *theta = &tensor_raw(p)[l->param_idx];
-      for(int i = 0; i < l->num_params; i++){
-        theta[i] = normal(0, 1 / sqrt(input_dim));
-      }
-      break;
-    }
-    case SK_HE:{
-      float *theta = &tensor_raw(p)[l->param_idx];
-      for(int i = 0; i < l->num_params; i++)
-        theta[i] = normal(0, sqrt(2 / input_dim));
-      break;
-    }
-    default:{
-      SK_ERROR("Not implemented!");
-      break;
-    }
-  }
 
   /*
    * Set up weights and biases of this layer. We will use an internal struct
@@ -206,9 +183,15 @@ void sk_fc_layer_initialize(Layer *l, Tensor p, Tensor g){
     d->weights[i]     = get_subtensor_reshape(p, param_offset, l->input_layers[i]->size, l->size);
     d->weight_grad[i] = get_subtensor_reshape(g, param_offset, l->input_layers[i]->size, l->size);
 
+    if(l->weight_initialization == SK_XAVIER)
+        tensor_fill_random(d->weights[i], 0, 1 / sqrt(input_dim));
+    if(l->weight_initialization == SK_HE)
+        tensor_fill_random(d->weights[i], 0, sqrt(2 / input_dim));
+
     param_offset += l->size * l->input_layers[i]->size;
   }
 
   l->output.dims[0] = 1;
   l->gradient.dims[0] = 1;
 }
+

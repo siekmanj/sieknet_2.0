@@ -84,10 +84,11 @@ void build_network(Network *n){
 
     for(int j = 0; j < l->num_input_layers; j++){
       Layer *in = sk_layer_from_name(n, l->input_names[j]);
-      in->num_output_layers++;
 
-      if(in)
+      if(in){
         l->input_layers[j] = in;
+        in->num_output_layers++;
+      }
       else
         SK_ERROR("could not find layer with name '%s' while constructing graph for layer '%s'.\n", l->input_names[j], l->name);
     }
@@ -118,6 +119,7 @@ void build_network(Network *n){
 
   assign_execution_order(n->layers, n->depth, n->input_layer, 0);
   qsort((void*)n->layers, n->depth, sizeof(Layer*), layer_comparator);
+
 
   for(int i = 0; i < n->depth; i++){
     Layer *l = n->layers[i];

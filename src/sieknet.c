@@ -45,6 +45,7 @@ static void initialize_network(Network *n){
   /* Initialize layer weights and variables */
   for(int i = 0; i < n->depth; i++)
     sk_layer_initialize(n->layers[i], n->params, n->param_grad);
+  printf("made it\n");
 
   n->t = 0;
   n->trainable = 1;
@@ -78,6 +79,7 @@ Network sk_create_network(const char *skfile){
   /*
    *  Allocate memory, initialize layer tensor objects
    */
+   printf("initing!\n");
   initialize_network(&n);
 
   return n;

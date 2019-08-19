@@ -11,6 +11,14 @@ int main(){
   setlocale(LC_NUMERIC, "");
 
   {
+    Tensor zero = create_tensor(SIEKNET_CPU, 3, 15, 16);
+    Tensor a = get_subtensor(zero, 0);
+    tensor_transpose(a, 0, 1);
+    tensor_print(a);
+    tensor_transpose(a, 0, 1);
+    tensor_print(a);
+  }
+  {
     printf("TENSOR_COPY_TEST: ");
     Tensor a = create_tensor(SIEKNET_CPU, 3, 4, 5);
     Tensor b = create_tensor(SIEKNET_CPU, 3, 5, 4);

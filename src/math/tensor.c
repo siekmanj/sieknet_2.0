@@ -225,8 +225,10 @@ void tensor_tanh_precompute(Tensor t, Tensor d){
     for(int i = 0; i < t.size; i++){
       float *t_raw = &tensor_raw(t)[tensor_flat_idx(t, pos, t.n)];
       float *d_raw = &tensor_raw(d)[tensor_flat_idx(d, pos, d.n)];
+      //printf("tanh(%f) =", *t_raw);
       *t_raw = (exp(*t_raw) - exp(-*t_raw)) / (exp(*t_raw) + exp(-*t_raw));
       *d_raw = 1 - (*t_raw * *t_raw);
+      //printf(" %f\n", *t_raw);
 
       pos[t.n - 1]++;
       for(int j = t.n - 1; j > 0; j--){
