@@ -158,6 +158,7 @@ int main(){
     size_t count = 0;
     float *params = tensor_raw(n.params);
     float *p_grad = tensor_raw(n.param_grad);
+    float epsilon = 5e-4;
     for(int i = 0; i < n.num_params; i++){
       sk_forward(&n, x);
       sk_cost(&n, n.layers[n.depth-1], y, SK_QUADRATIC_COST);
@@ -165,7 +166,6 @@ int main(){
 
       sk_wipe(&n);
 
-      float epsilon = 1e-4;
       float predicted_grad = p_grad[i];
 
       params[i] += epsilon;

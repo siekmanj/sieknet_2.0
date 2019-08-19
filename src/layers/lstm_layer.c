@@ -93,12 +93,8 @@ void sk_lstm_layer_forward(Layer *l, size_t t){
   tensor_elementwise_add(d->last_cell_state, cell_state, cell_state);
 
   /* Pass the cell state through the tanh nonlinearity */
-  //tensor_print(cell_state_tanh);
   tensor_copy(cell_state, cell_state_tanh);
-  //tensor_print(cell_state_tanh);
   tensor_tanh_precompute(cell_state_tanh, cell_grad);
-  //tensor_print(cell_state_tanh);
-  //getchar();
 
   Tensor y = get_subtensor(l->output, t);
   tensor_elementwise_mul(cell_state_tanh, outpt_gate_y, y);
@@ -132,12 +128,6 @@ void sk_lstm_layer_backward(Layer *l, size_t t){
   tensor_elementwise_mul(cell_grad, outpt_gate_y, cell_grad);
   tensor_elementwise_mul(cell_grad, gradient, cell_grad);
 
-  /*
-  tensor_print(outpt_gate_y);
-  tensor_print(gradient);
-  tensor_print(cell_grad);
-  */
-
   /* Add future gradient if one exists */
   if(t < max_t){
     Tensor cell_future = get_subtensor(d->cell_future_grad, t);
@@ -161,11 +151,14 @@ void sk_lstm_layer_backward(Layer *l, size_t t){
     Tensor last_future     = get_subtensor(d->cell_future_grad, t-1);
 
     /* Derivative for forget gate */
+    tensor_elementwise_mul(forgt_gate_dy, cell_grad, forgt_gate_dy);
     tensor_elementwise_mul(forgt_gate_dy, last_cell_state, forgt_gate_dy);
 
     /* Derivative for last cell state */
     tensor_elementwise_mul(cell_grad, forgt_gate_y, last_future);
-  }
+  }else
+    tensor_fill(forgt_gate_dy, 0.0f);
+  
 
   for(int i = 0; i < l->num_input_layers; i++){
     Layer *in = l->input_layers[i];
@@ -183,12 +176,12 @@ void sk_lstm_layer_backward(Layer *l, size_t t){
       
     }else continue;
 
-    for(int gate = 0; gate < 3; gate++)
-      tensor_mmult(x, get_subtensor(d->gate_grads, t, gate), get_subtensor(d->weight_grad[i], gate));
-    //tensor_print(x);
-    //tensor_print(get_subtensor(d->gate_grads, t));
-    //getchar();
-
+    for(int gate = 0; gate < 4; gate++){
+      Tensor g = get_subtensor(d->gate_grads, t, gate);
+      tensor_mmult(x, g, get_subtensor(d->weight_grad[i], gate));
+      if(dx.data)
+        tensor_mmult(get_subtensor(d->weights[i], gate), g, dx);
+    }
   }
 }
 
