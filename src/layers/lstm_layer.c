@@ -6,7 +6,6 @@
 #include <layer.h>
 #include <parser.h>
 
-
 typedef struct lstm_data_{
   Tensor bias;
   Tensor *weights;
@@ -72,6 +71,9 @@ void sk_lstm_layer_forward(Layer *l, size_t t){
     tensor_transpose(d->weights[i], 0, 1);
   }
 
+  Tensor gates = get_subtensor(d->gates, t);
+  tensor_elementwise_add(gates, d->bias, gates);
+
   /* Calculate all gate logistics and input nonlinearity */
   tensor_tanh_precompute(input_nonl_y, input_nonl_dy);
   tensor_sigmoid_precompute(input_gate_y, input_gate_dy);
@@ -119,7 +121,6 @@ void sk_lstm_layer_backward(Layer *l, size_t t){
   Tensor forgt_gate_dy = get_subtensor(d->gate_grads, t, 2);
   Tensor outpt_gate_dy = get_subtensor(d->gate_grads, t, 3);
 
-  Tensor cell_state  = get_subtensor(d->cell_state, t);
   Tensor cell_grad   = get_subtensor(d->cell_grad, t);
   Tensor cell_state_tanh = get_subtensor(d->cell_state_tanh, t);
 
@@ -183,6 +184,12 @@ void sk_lstm_layer_backward(Layer *l, size_t t){
         tensor_mmult(get_subtensor(d->weights[i], gate), g, dx);
     }
   }
+  tensor_elementwise_add(d->bias_grad, get_subtensor(d->gate_grads, t), d->bias_grad);
+}
+
+void sk_lstm_layer_wipe(Layer *l){
+  LSTM_layer_data *d = (LSTM_layer_data*)l->data;
+  tensor_fill(d->last_cell_state, 0.0f);
 }
 
 void sk_lstm_layer_parse(Layer *l, char *src){
@@ -230,6 +237,7 @@ void sk_lstm_layer_allocate(Layer *l){
   l->forward = sk_lstm_layer_forward;
   l->backward = sk_lstm_layer_backward;
   l->nonlinearity = sk_logistic_to_fn(l->logistic);
+  l->wipe = sk_lstm_layer_wipe;
 
   LSTM_layer_data *d   = malloc(sizeof(LSTM_layer_data));
   d->weights           = calloc(l->num_input_layers, sizeof(Tensor));

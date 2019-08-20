@@ -353,14 +353,12 @@ void parse_network(Network *n, const char *skfile){
   char line[BUFFSIZE] = {0};
   int done = 0;
   for(int i = 0; i < num_layers; i++){
-    printf("searching for start token\n");
     /* Search for a start token */
     do {
       start = tmp;
       done = !sk_parser_get_line(&tmp, line, NULL);
     }
     while(sk_layer_parse_identifier(line) == -1 && !done);
-    printf("FOUND START TOKEN: '%s'\n", line);
 
     do {
       end = tmp;
@@ -372,15 +370,9 @@ void parse_network(Network *n, const char *skfile){
     memcpy(layer_src, start, end - start);
     layer_src[end - start] = '\0';
 
-    //printf("parsing source:\n'%s'\n", layer_src);
-    printf("doing parse\n");
     sk_layer_parse(layers[i], layer_src);
 
-    //printf("GOT SOURCE:\n'%s'\n", layer_src);
-    //getchar();
-
     tmp = end;
-    printf("end of lop\n");
 
   }
 
@@ -394,7 +386,6 @@ void parse_network(Network *n, const char *skfile){
     done = !sk_parser_get_line(&tmp, line, NULL);
   }
   while(strcmp("[network]", line) && !done);
-  printf("found network start '%s'\n", line);
 
   do {
     done = !sk_parser_get_line(&tmp, line, NULL);
@@ -420,7 +411,6 @@ void parse_network(Network *n, const char *skfile){
   n->input_dimension = indim;
 
   free(src);
-  printf("found network end\n");
 }
 
 

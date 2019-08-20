@@ -1,0 +1,29 @@
+[network]
+name: fc_test
+input_dimension: 4
+input: layer_a
+output: layer_d
+
+[fully_connected layer]
+name: layer_a
+logistic: relu
+size: 50
+
+[fully_connected layer]
+input: layer_a
+name: layer_b
+logistic: sigmoid
+size: 50
+
+[fully_connected layer]
+input: layer_b
+name: layer_c
+logistic: relu
+size: 35
+
+[fully_connected layer]
+input: layer_c
+name: layer_d
+logistic: sigmoid
+size: 10
+

@@ -94,6 +94,8 @@ void sk_fc_layer_backward(Layer *l, size_t t){
   tensor_elementwise_add(g, db, db);
 }
 
+void sk_fc_layer_wipe(Layer *l){};
+
 /*
  * Parses the attributes of a fully-connected layer from
  * an excerpt of a config file.
@@ -147,6 +149,7 @@ void sk_fc_layer_allocate(Layer *l){
   l->forward      = sk_fc_layer_forward;
   l->backward     = sk_fc_layer_backward;
   l->nonlinearity = sk_logistic_to_fn(l->logistic);
+  l->wipe         = sk_fc_layer_wipe;
 
   FC_layer_data *d     = calloc(1, sizeof(FC_layer_data));
   d->weights           = calloc(l->num_input_layers, sizeof(Tensor));

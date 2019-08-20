@@ -45,7 +45,6 @@ static void initialize_network(Network *n){
   /* Initialize layer weights and variables */
   for(int i = 0; i < n->depth; i++)
     sk_layer_initialize(n->layers[i], n->params, n->param_grad);
-  printf("made it\n");
 
   n->t = 0;
   n->trainable = 1;
@@ -79,7 +78,6 @@ Network sk_create_network(const char *skfile){
   /*
    *  Allocate memory, initialize layer tensor objects
    */
-   printf("initing!\n");
   initialize_network(&n);
 
   return n;
@@ -88,6 +86,7 @@ Network sk_create_network(const char *skfile){
 void sk_wipe(Network *n){
   for(int i = 0; i < n->depth; i++){
     //TODO: make this a member function
+    n->layers[i]->wipe(n->layers[i]);
     tensor_fill(n->layers[i]->loutput, 0.0f);
   }
 }
@@ -149,7 +148,7 @@ void sk_forward(Network *n, Tensor x){
   }
 }
 
-float sk_cost(Network *n, Layer *l, Tensor y, SK_COST_FN cost){
+float sk_cost(Layer *l, Tensor y, SK_COST_FN cost){
   if(y.n > 2)
     SK_ERROR("Cannot currently handle tensors with dimension > 2 as labels.");
 
@@ -176,17 +175,19 @@ float sk_cost(Network *n, Layer *l, Tensor y, SK_COST_FN cost){
     }
   }
 
+  const size_t max_t = l->output.dims[0];
+
   if(y.n == 1){
-    Tensor grad   = get_subtensor(l->gradient, n->t-1);
-    Tensor output = get_subtensor(l->output, n->t-1);
+    Tensor grad   = get_subtensor(l->gradient, max_t-1);
+    Tensor output = get_subtensor(l->output, max_t-1);
     return cost_function(output, y, grad);
   }
   if(y.n == 2){
-    if(y.dims[0] != n->t)
-      SK_ERROR("Network timesteps are %lu, but label tensor is a sequence of length %lu. Expected these to match. Aborting.", n->t, y.dims[0]);
+    if(y.dims[0] != max_t)
+      SK_ERROR("Network timesteps are %lu, but label tensor is a sequence of length %lu. Expected these to match. Aborting.", max_t, y.dims[0]);
 
     float sum_cost = 0;
-    for(int t = 0; t < y.dims[0]; t++){
+    for(int t = 0; t < max_t; t++){
       Tensor output = get_subtensor(l->output, t);
       Tensor label  = get_subtensor(y, t);
       Tensor grad   = get_subtensor(l->gradient, t);

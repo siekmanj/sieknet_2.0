@@ -16,4 +16,6 @@ void sk_fc_layer_forward(Layer *, size_t);
 
 void sk_fc_layer_backward(Layer *, size_t);
 
+void sk_fc_layer_wipe(Layer *);
+
 #endif

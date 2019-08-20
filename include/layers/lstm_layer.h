@@ -16,4 +16,6 @@ void sk_lstm_layer_forward(Layer *, size_t);
 
 void sk_lstm_layer_backward(Layer *, size_t);
 
+void sk_lstm_layer_wipe(Layer *l);
+
 #endif

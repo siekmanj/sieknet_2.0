@@ -44,6 +44,7 @@ typedef struct layer_{
   void (*forward)(struct layer_*, size_t);
   void (*backward)(struct layer_*, size_t);
   void (*nonlinearity)(Tensor, Tensor);
+  void (*wipe)(struct layer_*);
 
 } Layer;
 
@@ -87,7 +88,7 @@ Network sk_create_network(const char *);
 void    sk_save_network(const char *);
 
 void  sk_forward(Network *, Tensor);
-float sk_cost(Network *, Layer *, Tensor, SK_COST_FN);
+float sk_cost(Layer *, Tensor, SK_COST_FN);
 void  sk_backward(Network *);
 
 void sk_wipe(Network *n);
