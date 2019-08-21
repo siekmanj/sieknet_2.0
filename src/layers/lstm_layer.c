@@ -41,7 +41,7 @@ void sk_lstm_layer_forward(Layer *l, size_t t){
   d->gate_grads.dims[0]       = t + 1;
   d->cell_grad.dims[0]        = t + 1;
   d->cell_state.dims[0]       = t + 1;
-  d->cell_state_tanh.dims[9]  = t + 1;
+  d->cell_state_tanh.dims[0]  = t + 1;
   d->cell_future_grad.dims[0] = t + 1;
 
   tensor_fill(get_subtensor(d->gates, t), 0.0f);
@@ -196,11 +196,11 @@ void sk_lstm_layer_parse(Layer *l, char *src){
   
   char *name;
   if(!sk_parser_find_string("name", src, &name))
-    SK_ERROR("Unable to parse fc-layer attribute 'name'.");
+    SK_ERROR("Unable to parse lstm layer attribute 'name'.");
 
   int size;
   if(!sk_parser_find_int("size", src, &size))
-    SK_ERROR("Unable to parse fc-layer attribute 'size' for layer '%s'.\n", name);
+    SK_ERROR("Unable to parse lstm layer attribute 'size' for layer '%s'.\n", name);
 
   size_t num_names = 0;
   char **input_names;
@@ -263,9 +263,7 @@ void sk_lstm_layer_initialize(Layer *l, Tensor p, Tensor g){
 
   /*
    * Set up weights and biases of this layer. We will use an internal struct
-   * which is not used anywhere outside of this file (FC_layer_data). This 
-   * is used to manage the forward and backward passes for fully connected
-   * layers.
+   * which is not used anywhere outside of this file (LSTM_layer_data).
    */
   size_t param_offset = l->param_idx;
   LSTM_layer_data *d = (LSTM_layer_data *)l->data;
