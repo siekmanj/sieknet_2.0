@@ -508,6 +508,26 @@ void tensor_elementwise_mul(const Tensor a, const Tensor b, Tensor c){
   }
 }
 
+void tensor_scalar_mul(Tensor t, float a){
+  if(t.device == SIEKNET_CPU){
+    size_t pos[t.n];
+    memset(pos, '\0', sizeof(size_t)*t.n);
+
+    for(int i = 0; i < t.size; i++){
+      tensor_raw(t)[tensor_flat_idx(t, pos, t.n)] *= a;
+      pos[t.n - 1]++;
+      for(int j = t.n - 1; j > 0; j--){
+        if(!(pos[j] % t.dims[j])){
+          pos[j-1]++;
+          pos[j] = 0;
+        }else break;
+      }
+    }
+  }else
+    SK_ERROR("Not supported.");
+
+}
+
 
 /*
  * Performs a matrix multiplication given two 2d tensors, 

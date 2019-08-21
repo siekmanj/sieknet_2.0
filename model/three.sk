@@ -1,0 +1,47 @@
+[layer]
+name: layer_a
+type: feedforward
+logistic: sigmoid
+size: 16
+
+[layer]
+name: layer_e
+input: layer_d, layer_f
+logistic: tanh
+type: feedforward
+size: 10
+
+[layer]
+name: layer_f
+input: layer_b, layer_e
+logistic: tanh
+type: feedforward
+size: 10
+
+[layer]
+name: layer_b
+input: layer_a
+logistic: sigmoid
+type: recurrent
+size: 16
+
+[layer]
+name: layer_c
+input: layer_b
+logistic: tanh
+type: feedforward
+size: 4
+
+[layer]
+name: layer_d
+input: layer_c
+logistic: tanh
+type: feedforward
+size: 10
+
+[network]
+name: test
+input_dimension: 4
+input: layer_a
+output: layer_f
+

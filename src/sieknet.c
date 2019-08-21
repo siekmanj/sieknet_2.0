@@ -63,11 +63,13 @@ Layer *sk_layer_from_name(Network *n, const char *name){
 Network sk_create_network(const char *skfile){
   Network n = {0};
 
+  char *src = sk_parser_string_from_file(skfile);
+
   /* 
    * Retrieve layer names + sizes, input layer names, 
    * logistic functions, layer types, and network name.
    */
-  parse_network(&n, skfile);
+  parse_network(&n, src);
 
   /*
    * Construct directed graph, assign input & output layers,

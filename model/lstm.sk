@@ -1,0 +1,27 @@
+[network]
+name: lstm_test
+input_dimension: 10
+input: layer_a
+output: layer_d
+
+[fully_connected layer]
+name: fc_layer1
+logistic: sigmoid
+size: 25
+
+[lstm layer]
+name: layer_b
+input: layer_a, layer_b
+size: 10
+
+[lstm layer]
+name: layer_c
+input: layer_b, layer_c
+size: 1
+
+[fully_connected layer]
+name: layer_d
+input: layer_c, layer_b, layer_d
+logistic: sigmoid
+size: 1
+

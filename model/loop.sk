@@ -1,0 +1,27 @@
+[network]
+name: loop_test
+input_dimension: 4
+input: layer_a
+output: layer_d
+
+[fully_connected layer]
+name: layer_a
+logistic: tanh
+size: 6
+
+[fully_connected layer]
+name: layer_b
+input: layer_a, layer_c
+size: 5
+
+[fully_connected layer]
+name: layer_c
+input: layer_a, layer_b
+logistic: sigmoid
+size: 3
+
+[fully_connected layer]
+name: layer_d
+input: layer_c, layer_b, layer_d
+logistic: sigmoid
+size: 1

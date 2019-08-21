@@ -4,7 +4,6 @@
 #include <stdlib.h>
 
 #include <conf.h>
-//#include <layer.h>
 #include <tensor.h>
 
 typedef enum sk_cost_fn   {SK_QUADRATIC_COST, SK_CROSS_ENTROPY_COST} SK_COST_FN;
@@ -80,7 +79,7 @@ void (*sk_logistic_to_fn(SK_LOGISTIC))(Tensor, Tensor);
 SK_LAYER_TYPE sk_layer_parse_identifier(const char *);
 SK_LOGISTIC sk_layer_parse_logistic(const char *);
 
-void parse_network(Network *, const char *);
+void parse_network(Network *, char *);
 void build_network(Network *);
 
 Network sk_load_network(const char *, const char *);

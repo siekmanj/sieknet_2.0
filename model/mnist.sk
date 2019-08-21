@@ -1,8 +1,8 @@
 [network]
 name: fc_test
-input_dimension: 4
+input_dimension: 784
 input: layer_a
-output: layer_d
+output: softmax_layer
 
 [fully_connected layer]
 name: layer_a
@@ -23,7 +23,7 @@ size: 35
 
 [fully_connected layer]
 input: layer_c
-name: layer_d
+name: softmax_layer
 logistic: sigmoid
 size: 10
 

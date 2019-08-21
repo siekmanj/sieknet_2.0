@@ -54,6 +54,8 @@ void tensor_mmult(const Tensor, const Tensor, Tensor);
 void tensor_elementwise_add(const Tensor, const Tensor, Tensor);
 void tensor_elementwise_mul(const Tensor, const Tensor, Tensor);
 
+void tensor_scalar_mul(Tensor, float);
+
 void tensor_transpose(Tensor, size_t, size_t);
 void tensor_fill_random(Tensor, float, float);
 void tensor_fill(Tensor, float);

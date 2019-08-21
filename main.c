@@ -11,7 +11,31 @@ int main(){
   setlocale(LC_NUMERIC, "");
 
   {
-    printf("TENSOR_COPY_TEST: ");
+    printf("%-50s", "TENSOR_SCALAR_MUL TEST: ");
+    Tensor a = create_tensor(SIEKNET_CPU, 3, 4, 5);
+    Tensor b = create_tensor(SIEKNET_CPU, 3, 4, 5);
+    tensor_fill_random(a, 0, 1);
+    tensor_copy(a, b);
+    tensor_scalar_mul(b, 0.1);
+
+    int success = 1;
+    for(int i = 0; i < 3; i++){
+      for(int j = 0; j < 4; j++){
+        for(int k = 0; k < 5; k++){
+          if(tensor_at(a, i, j, k) == 0.1 * tensor_at(b, i, j, k))
+            success = 0;
+        }
+      }
+    }
+    if(success)
+      printf("PASSED\n");
+    else
+      printf("FAILED\n");
+    tensor_dealloc(a);
+    tensor_dealloc(b);
+  }
+  {
+    printf("%-50s", "TENSOR_COPY_TEST: ");
     Tensor a = create_tensor(SIEKNET_CPU, 3, 4, 5);
     Tensor b = create_tensor(SIEKNET_CPU, 3, 5, 4);
     tensor_fill_random(a, 0, 1);
@@ -36,7 +60,7 @@ int main(){
   }
 
   {
-    printf("TRANSPOSE_TEST: ");
+    printf("%-50s", "TRANSPOSE_TEST: ");
     Tensor a = create_tensor(SIEKNET_CPU, 15, 16);
     Tensor b = create_tensor(SIEKNET_CPU, 15, 16);
     tensor_fill_random(a, 0, 1);
@@ -62,7 +86,7 @@ int main(){
   }
 
   {
-    printf("ELEMENTWISE_ADD: ");
+    printf("%-50s", "ELEMENTWISE_ADD: ");
     Tensor a = create_tensor(SIEKNET_CPU, 4, 5, 6);
     Tensor b = create_tensor(SIEKNET_CPU, 4, 5, 6);
     Tensor c = create_tensor(SIEKNET_CPU, 4, 5, 6);
@@ -98,7 +122,7 @@ int main(){
   }
 
   {
-    printf("ELEMENTWISE_MUL: ");
+    printf("%-50s", "ELEMENTWISE_MUL: ");
     Tensor a = create_tensor(SIEKNET_CPU, 4, 5, 6);
     Tensor b = create_tensor(SIEKNET_CPU, 4, 5, 6);
     Tensor c = create_tensor(SIEKNET_CPU, 4, 5, 6);
@@ -135,7 +159,7 @@ int main(){
   }
 
   {
-    printf("GRADIENT CHECK: ");
+    printf("%-50s", "GRADIENT CHECK: ");
     size_t t = 50;
     Network n = sk_create_network(test);
     Tensor x = create_tensor(SIEKNET_CPU, t, n.input_dimension);
@@ -186,7 +210,7 @@ int main(){
   }
 
   {
-    printf("GRADIENT CHECK SINGLE T: ");
+    printf("%-50s", "GRADIENT CHECK SINGLE T: ");
     size_t t = 50;
     Network n = sk_create_network(test);
     Tensor x = create_tensor(SIEKNET_CPU, t, n.input_dimension);
