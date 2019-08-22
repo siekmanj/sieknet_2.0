@@ -7,17 +7,24 @@
 const char* test= "model/test.sk";
 
 int main(){
-  srand(0);
+  srand(time(NULL));
   setlocale(LC_NUMERIC, "");
 
 #if 0
   float a_mem[] = {-1.0, -1.0, 1.0};
+	float c_mem[] = {0.0, -9.3890561, 0.0};
   Tensor a = create_tensor(SIEKNET_CPU, 3);
-  Tensor b = create_tensor(SIEKNET_CPU, 3);
+  Tensor b = create_tensor(SIEKNET_CPU, 3, 3);
+	Tensor c = create_tensor(SIEKNET_CPU, 3);
+	Tensor d = create_tensor(SIEKNET_CPU, 3);
+	Tensor e = create_tensor(SIEKNET_CPU, 3);
   a.data = a_mem;
-  tensor_softmax(a);
+	c.data = c_mem;
+  tensor_softmax_precompute(a, b);
   tensor_print(a);
   tensor_print(b);
+	tensor_mmult(b, c, d);
+	tensor_print(d);
   exit(1);
 #endif
   {
@@ -47,8 +54,9 @@ int main(){
   {
     printf("%-50s", "SOFTMAX_TEST");
     Tensor a = create_tensor(SIEKNET_CPU, 3, 4, 5);
+    Tensor b = create_tensor(SIEKNET_CPU, 3, 4, 5, 5);
     tensor_fill_random(a, 0, 1);
-    tensor_softmax(a);
+    tensor_softmax_precompute(a, b);
     int success = 1;
     for(int i = 0; i < 3; i++){
       for(int j = 0; j < 4; j++){
@@ -71,8 +79,9 @@ int main(){
   {
     printf("%-50s", "SOFTMAX_2_TEST");
     Tensor a = create_tensor(SIEKNET_CPU, 5);
+    Tensor b = create_tensor(SIEKNET_CPU, 5, 5);
     tensor_fill_random(a, 0, 1);
-    tensor_softmax(a);
+    tensor_softmax_precompute(a, b);
     int success = 1;
     float sum = 0;
     for(int k = 0; k < 5; k++){
@@ -213,9 +222,11 @@ int main(){
     tensor_dealloc(c);
   }
 
+	const size_t t = 1;
+	const float epsilon = 1e-3;
+	const float threshold = 1e-5;
   {
     printf("%-50s", "GRADIENT CHECK: ");
-    size_t t = 50;
     Network n = sk_create_network(test);
     Tensor x = create_tensor(SIEKNET_CPU, t, n.input_dimension);
     Tensor y = create_tensor(SIEKNET_CPU, t, n.layers[n.depth-1]->output.dims[1]);
@@ -226,7 +237,6 @@ int main(){
     size_t count = 0;
     float *params = tensor_raw(n.params);
     float *p_grad = tensor_raw(n.param_grad);
-    float epsilon = 1e-3;
     for(int i = 0; i < n.num_params; i++){
       sk_forward(&n, x);
       sk_cost(n.layers[n.depth-1], y, SK_QUADRATIC_COST);
@@ -256,28 +266,26 @@ int main(){
 
 			tensor_fill(n.param_grad, 0.0f);
     }
-    norm /= count;
-    if(norm < 1e-3)
+    norm /= count * t;
+    if(norm < threshold)
       printf("PASSED (norm %12.11f)\n", norm);
     else
-      printf("FAILED (norm %5.4f)\n", norm);
+      printf("FAILED (norm %12.11f)\n", norm);
 
   }
 
   {
     printf("%-50s", "GRADIENT CHECK SINGLE T: ");
-    size_t t = 50;
     Network n = sk_create_network(test);
     Tensor x = create_tensor(SIEKNET_CPU, t, n.input_dimension);
     Tensor y = create_tensor(SIEKNET_CPU, t, n.layers[n.depth-1]->output.dims[1]);
 		tensor_fill_random(x, 0, 0.3);
 		tensor_fill_random(y, 0.5, 0.1);
 
-    float norm = 0;
+    double norm = 0;
     size_t count = 0;
     float *params = tensor_raw(n.params);
     float *p_grad = tensor_raw(n.param_grad);
-    float epsilon = 1e-3;
     for(int i = 0; i < n.num_params; i++){
       for(int i_t = 0; i_t < t; i_t++){
         Tensor x_t = get_subtensor(x, i_t);
@@ -293,7 +301,7 @@ int main(){
 
       params[i] += epsilon;
 
-      float c1 = 0;
+      double c1 = 0;
       for(int i_t = 0; i_t < t; i_t++){
         Tensor x_t = get_subtensor(x, i_t);
         Tensor y_t = get_subtensor(y, i_t);
@@ -304,7 +312,7 @@ int main(){
       sk_wipe(&n);
 
       params[i] -= 2 * epsilon;
-      float c2 = 0;
+      double c2 = 0;
       for(int i_t = 0; i_t < t; i_t++){
         Tensor x_t = get_subtensor(x, i_t);
         Tensor y_t = get_subtensor(y, i_t);
@@ -314,20 +322,31 @@ int main(){
       n.t = 0;
       sk_wipe(&n);
 
-      float empirical_grad = (c1 - c2) / (2 * epsilon);
-      norm += (predicted_grad - empirical_grad) * (predicted_grad - empirical_grad);
+      double empirical_grad = (c1 - c2) / (2 * epsilon);
+			double diff = predicted_grad - empirical_grad;
+			/* 
+			 * Relative difference reveals a pretty high error [1e-3, 1e-4].
+		   * While I am fairly confident that I've implemented my backprop
+			 * correctly, I think it is also possible that the error is due
+			 * to floating point roundoff. If anybody reading this can find
+			 * a mistake in the backprop code that might cause this error, I 
+			 * would be very grateful.
+			 */
+			//double relative = fabs(diff) / MAX(fabs(predicted_grad), fabs(empirical_grad));
+      norm += diff*diff;
       count++;
       params[i] += epsilon;
 
+			//printf("observed grad: (%f - %f) / (2 * %f)\n", c1, c2, epsilon);
       //printf("predicted grad vs observed grad: %f - %f = %f\n", predicted_grad, empirical_grad, predicted_grad - empirical_grad);
 
 			tensor_fill(n.param_grad, 0.0f);
     }
-    norm /= count;
-    if(norm < 1e-3)
+    norm /= count * t;
+    if(norm < threshold)
       printf("PASSED (norm %12.11f)\n", norm);
     else
-      printf("FAILED (norm %5.4f)\n", norm);
+      printf("FAILED (norm %12.11f)\n", norm);
 
   }
 

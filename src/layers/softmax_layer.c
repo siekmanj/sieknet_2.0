@@ -7,7 +7,9 @@
 #include <parser.h>
 
 typedef struct Softmax_layer_data_{
-  Tensor *input_mappings
+
+	Tensor softmax_jacobian;
+	Tensor input_gradient;
 
 } SM_layer_data;
 
@@ -17,21 +19,31 @@ typedef struct Softmax_layer_data_{
  * connections.
  */
 void sk_softmax_layer_forward(Layer *l, size_t t){
+	SM_layer_data *d = (SM_layer_data*)l->data;
+
   Tensor logits = get_subtensor(l->output, t);
+	Tensor jacobian = get_subtensor(d->softmax_jacobian, t);
 
   /* Zero the output tensor for this timestep */
   tensor_fill(logits, 0.0f);
+	tensor_fill(jacobian, 0.0f);
 
   size_t logit_offset = 0;
-  /* Loop through all the input layers and do a matrix mult */
+
+  /* Loop through all the input layers and copy to logits */
   for(int i = 0; i < l->num_input_layers; i++){
     Layer *in = l->input_layers[i];
 
     /* Get the subtensor for this timestep */
-    Tensor x = in->rank >= l->rank ? in->loutput : in->output;
-    x        = x.n == 1 ? x : get_subtensor(x, t);
+    Tensor x = in->rank >= l->rank ? in->loutput : get_subtensor(in->output, t);
 
+		Tensor logit_x = get_subtensor_reshape(logits, logit_offset, x.size);
+
+		tensor_copy(x, logit_x);
+		tensor_dealloc(logit_x);
+		logit_offset += x.size;
   }
+	tensor_softmax_precompute(logits, jacobian);
 }
 
 /*
@@ -40,23 +52,35 @@ void sk_softmax_layer_forward(Layer *l, size_t t){
  * connections.
  */
 void sk_softmax_layer_backward(Layer *l, size_t t){
-  Tensor o = get_subtensor(l->gradient, t);
+	SM_layer_data *d = (SM_layer_data*)l->data;
 
+  Tensor gradient = get_subtensor(l->gradient, t);
+	Tensor jacobian = get_subtensor(d->softmax_jacobian, t);
+	Tensor input_grad = get_subtensor(d->input_gradient, t);
+
+	tensor_fill(input_grad, 0.0f);
+	tensor_mmult(jacobian, gradient, input_grad);
+
+	size_t logit_offset = 0;
   for(int i = 0; i < l->num_input_layers; i++){
     Layer *in = l->input_layers[i];
 
     int target_t = in->rank >= l->rank ? t - 1 : t;
 
     /* Get the subtensor for this timestep */
-    if(target_t >= 0){
-      Tensor dx = {0};
-      Tensor x = get_subtensor(in->output, target_t);
+    if(target_t >= 0 && in->gradient.data){
+      Tensor dx = get_subtensor(in->gradient, target_t);
 
-      if(in->gradient.data)
-        dx = get_subtensor(in->gradient, target_t);
+			Tensor logit_gradient  = get_subtensor_reshape(input_grad, logit_offset, dx.size);
+
+			tensor_elementwise_add(logit_gradient, dx, dx);
+			tensor_dealloc(logit_gradient);
       
-    }else continue;
-
+			logit_offset += in->size;
+    }else{
+			logit_offset += in->size;
+			continue;
+		}
   }
 }
 
@@ -101,6 +125,12 @@ void sk_softmax_layer_allocate(Layer *l){
   l->forward      = sk_softmax_layer_forward;
   l->backward     = sk_softmax_layer_backward;
   l->wipe         = sk_softmax_layer_wipe;
+
+	SM_layer_data *d = calloc(sizeof(SM_layer_data), 1);
+	d->softmax_jacobian = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size, l->size);
+	d->input_gradient   = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
+	l->data = d;
+	
 }
 
 /*

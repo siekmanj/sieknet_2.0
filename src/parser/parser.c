@@ -176,7 +176,7 @@ void parse_network(Network *n, char *src){
     do {
       start = tmp;
       done = !sk_parser_get_line(&tmp, line, NULL);
-      printf("FOUND LINE '%s'\n", line);
+      //printf("FOUND LINE '%s'\n", line);
     }
     while(sk_layer_parse_identifier(line) == -1 && !done);
 

@@ -68,7 +68,7 @@ void tensor_tanh_precompute(Tensor, Tensor);
 void tensor_relu_precompute(Tensor, Tensor);
 void tensor_selu_precompute(Tensor, Tensor);
 
-void tensor_softmax(Tensor);
+void tensor_softmax_precompute(Tensor, Tensor);
 
 float tensor_quadratic_cost(Tensor, Tensor, Tensor);
 float tensor_cross_entropy_cost(Tensor, Tensor, Tensor);
