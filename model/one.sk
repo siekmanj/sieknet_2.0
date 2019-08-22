@@ -1,0 +1,18 @@
+[layer]
+name: layer_a
+type: feedforward
+logistic: sigmoid
+size: 25
+
+[layer]
+name: layer_b
+input: layer_a
+type: feedforward
+logistic: sigmoid
+size: 50
+
+[network]
+name: test_1
+input_dimension: 10
+input: layer_a
+output: layer_b
