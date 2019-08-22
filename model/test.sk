@@ -1,27 +1,20 @@
 [network]
 name: fc_test
 input_dimension: 4
-input: layer_a
-output: layer_d
+input: input_layer
+output: softmax_layer
 
 [fully_connected layer]
-name: layer_a
+name: input_layer
 logistic: tanh
 size: 6
 
-[lstm layer]
-name: layer_b
-input: layer_a
-size: 5
-
 [fully_connected layer]
-name: layer_c
-input: layer_b, layer_c
+name: hidden_layer
+input: input_layer
 logistic: sigmoid
-size: 3
+size: 25
 
-[fully_connected layer]
-name: layer_d
-input: layer_c, layer_b, layer_d
-logistic: sigmoid
-size: 1
+[softmax layer]
+name: softmax_layer
+input: hidden_layer

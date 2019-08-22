@@ -151,23 +151,10 @@ int sk_parser_find_strings(const char *identifier, char *src, char ***dest, size
   return 0;
 }
 
-#if 0
-void parse_network(Network *n, const char *skfile){
-  if(!skfile)
-    SK_ERROR("null pointer");
-
-  FILE *fp = fopen(skfile, "rb");
-
-  if(!fp)
-    SK_ERROR("could not open file '%s'", skfile);
-
-  //char *src = string_from_file(skfile);
-#else
 void parse_network(Network *n, char *src){
   if(!src)
     SK_ERROR("null ptr");
 
-#endif
   size_t num_layers = layers_in_cfg(src);
 
   Layer **layers = malloc(sizeof(Layer*) * num_layers);
@@ -189,6 +176,7 @@ void parse_network(Network *n, char *src){
     do {
       start = tmp;
       done = !sk_parser_get_line(&tmp, line, NULL);
+      printf("FOUND LINE '%s'\n", line);
     }
     while(sk_layer_parse_identifier(line) == -1 && !done);
 

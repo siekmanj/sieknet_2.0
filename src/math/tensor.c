@@ -277,12 +277,136 @@ void tensor_relu_precompute(Tensor t, Tensor d){
 }
 
 /*
- * Performs the softmax nonlinearity on a tensor. Also
- * computes the intermediate gradient (derivative of softmax)
+ * Performs the softmax nonlinearity on a tensor.
  */
-void tensor_softmax_precompute(Tensor t, Tensor d){
+void tensor_softmax(Tensor t){
   if(t.device == SIEKNET_CPU){
+    size_t pos[t.n];
+    memset(pos, '\0', sizeof(size_t)*t.n);
 
+    for(int i = 0; i < t.size/t.dims[t.n-1]; i++){
+      Tensor vec = tensor_to_subtensor(t, pos, t.n-1);
+
+      // FUTURE:
+      // tensor_exp(vec);
+      // float sum = tensor_reduce(vec);
+      // tensor_elementwise_mul(vec, 1/sum);
+      // easy peasy, works on cpu/gpu
+
+      float sum = 0;
+      for(int j = 0; j < vec.size; j++){
+        sum += exp(tensor_at(vec, j)/* - arr_max*/);
+      }
+
+      for(int j = 0; j < vec.size; j++){
+        tensor_raw(vec)[tensor_get_offset(vec, j)] = exp(tensor_at(vec, j)) / sum;
+      }
+
+      pos[t.n - 2]++;
+      for(int j = t.n - 2; j > 0; j--){
+        if(!(pos[j] % t.dims[j])){
+          pos[j-1]++;
+          pos[j] = 0;
+        }else break;
+      }
+    }
+    
+    /*
+    if(d.data){
+      printf("doing derivative!\n");
+      memset(pos, '\0', sizeof(size_t)*t.n);
+      tensor_fill(d, 0.0f);
+
+      for(int i = 0; i < t.size/t.dims[t.n-1]; i++){
+        Tensor vec = tensor_to_subtensor(t, pos, t.n-1);
+        Tensor dsm = tensor_to_subtensor(d, pos, d.n-1);
+        for(int j = 0; j < vec.size; j++){
+          for(int k = 0; k < vec.size; k++){
+            float s_j = tensor_at(vec, j);
+            float s_k = tensor_at(vec, k);
+            float had = s_k * ((j == k) - s_j);
+
+            printf("jacobian[%d, %d] = %f\n", j, k, had);
+            tensor_raw(dsm)[tensor_get_offset(dsm, j)] += had;
+            printf("\t%f\n", tensor_raw(dsm)[tensor_get_offset(dsm, j)]);
+
+          }
+          printf("DERIVATIVE:\n");
+          tensor_print(dsm);
+          getchar();
+        }
+        pos[t.n - 2]++;
+        for(int j = t.n - 2; j > 0; j--){
+          if(!(pos[j] % t.dims[j])){
+            pos[j-1]++;
+            pos[j] = 0;
+          }else break;
+        }
+      }
+    }
+    */
+      /*
+       * Prevent overflow by finding and subtracting arr max
+       */
+#if 0
+      float arr_max = 0;
+      for(int j = 0; j < t.dims[t.n-1]; j++){
+        pos[t.n-1] = j;
+        float current = tensor_at_idx(t, pos, t.n);
+        arr_max = current > arr_max ? current : arr_max;
+      }
+
+      float sum = 0;
+      for(int j = 0; j < t.dims[t.n-1]; j++){
+        pos[t.n-1] = j;
+        sum += exp(tensor_at_idx(t, pos, t.n)/* - arr_max*/);
+      }
+
+      for(int j = 0; j < t.dims[t.n-1]; j++){
+        pos[t.n-1] = j;
+        float *t_raw = &tensor_raw(t)[tensor_flat_idx(t, pos, t.n)];
+        *t_raw = exp(*t_raw/* - arr_max*/) / MAX(sum, 1e-7);
+
+      }
+      if(d.data){
+        memcpy(pos2, pos, sizeof(size_t)*t.n);
+        tensor_fill(d, 0.0f);
+        for(int j = 0; j < t.dims[t.n-1]; j++){
+          pos[t.n-1] = j;
+          float s_j = tensor_raw(t)[tensor_flat_idx(t, pos, t.n)];
+
+          for(int k = 0; k < d.dims[d.n-1]; k++){
+            pos2[t.n-1] = k;
+
+            //printf("pos vs pos2:\n");
+            //for(int l = 0; l < t.n; l++){
+            //  printf("\t%lu vs %lu\n", pos[l], pos2[l]);
+            //}
+            float s_k = tensor_raw(t)[tensor_flat_idx(t, pos, t.n)];
+            //printf("s_%d = %f and s_%d = %f, doing\n", j, s_j, k, s_k);
+            if(j == k){
+              //printf("these should be identical: %f %f\n", s_k, s_j);
+              tensor_raw(d)[tensor_flat_idx(d, pos, d.n)] += s_k * (1 - s_k);
+              //printf("%f * (1 - %f)\n", s_j, s_k);
+            }
+            else{
+              tensor_raw(d)[tensor_flat_idx(d, pos, d.n)] += -s_j * s_k;
+              //printf("-%f * %f)\n", s_j, s_k);
+            }
+            //printf("smsum now %f\n", tensor_raw(d)[tensor_flat_idx(d, pos2, d.n)]);
+          }
+        }
+      }
+
+      pos[t.n - 2]++;
+      for(int j = t.n - 2; j > 0; j--){
+        if(!(pos[j] % t.dims[j])){
+          pos[j-1]++;
+          pos[j] = 0;
+        }else break;
+      }
+    }
+#endif
   }else if(t.device == SIEKNET_GPU){
     SK_ERROR("Not implemented.");
   }else{
@@ -508,6 +632,9 @@ void tensor_elementwise_mul(const Tensor a, const Tensor b, Tensor c){
   }
 }
 
+/*
+ * Multiplies the contents of a tensor by a scalar value.
+ */
 void tensor_scalar_mul(Tensor t, float a){
   if(t.device == SIEKNET_CPU){
     size_t pos[t.n];
@@ -525,9 +652,7 @@ void tensor_scalar_mul(Tensor t, float a){
     }
   }else
     SK_ERROR("Not supported.");
-
 }
-
 
 /*
  * Performs a matrix multiplication given two 2d tensors, 

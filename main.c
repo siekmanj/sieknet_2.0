@@ -10,6 +10,16 @@ int main(){
   srand(0);
   setlocale(LC_NUMERIC, "");
 
+#if 0
+  float a_mem[] = {-1.0, -1.0, 1.0};
+  Tensor a = create_tensor(SIEKNET_CPU, 3);
+  Tensor b = create_tensor(SIEKNET_CPU, 3);
+  a.data = a_mem;
+  tensor_softmax(a);
+  tensor_print(a);
+  tensor_print(b);
+  exit(1);
+#endif
   {
     printf("%-50s", "TENSOR_SCALAR_MUL TEST: ");
     Tensor a = create_tensor(SIEKNET_CPU, 3, 4, 5);
@@ -34,6 +44,51 @@ int main(){
     tensor_dealloc(a);
     tensor_dealloc(b);
   }
+  {
+    printf("%-50s", "SOFTMAX_TEST");
+    Tensor a = create_tensor(SIEKNET_CPU, 3, 4, 5);
+    tensor_fill_random(a, 0, 1);
+    tensor_softmax(a);
+    int success = 1;
+    for(int i = 0; i < 3; i++){
+      for(int j = 0; j < 4; j++){
+        float sum = 0;
+        for(int k = 0; k < 5; k++){
+          sum += tensor_at(a, i, j, k);
+        }
+        float diff = sum - 1.0f;
+        if(MAX(diff , -diff) > 1e-5)
+          success = 0;
+      }
+    }
+    if(success)
+      printf("PASSED\n");
+    else
+      printf("FAILED\n");
+    tensor_dealloc(a);
+  }
+
+  {
+    printf("%-50s", "SOFTMAX_2_TEST");
+    Tensor a = create_tensor(SIEKNET_CPU, 5);
+    tensor_fill_random(a, 0, 1);
+    tensor_softmax(a);
+    int success = 1;
+    float sum = 0;
+    for(int k = 0; k < 5; k++){
+      sum += tensor_at(a, k);
+    }
+    float diff = sum - 1.0f;
+    if(MAX(diff , -diff) > 1e-5)
+      success = 0;
+
+    if(success)
+      printf("PASSED\n");
+    else
+      printf("FAILED\n");
+    tensor_dealloc(a);
+  }
+
   {
     printf("%-50s", "TENSOR_COPY_TEST: ");
     Tensor a = create_tensor(SIEKNET_CPU, 3, 4, 5);

@@ -7,6 +7,7 @@
 
 #include <fc_layer.h>
 #include <lstm_layer.h>
+#include <softmax_layer.h>
 
 int sk_contains_layer(Layer **arr, Layer *comp, size_t arrlen){
   for(int i = 0; i < arrlen; i++){
@@ -23,6 +24,8 @@ SK_LAYER_TYPE sk_layer_parse_identifier(const char *line){
     return SK_FF;
   if(!strcmp(line, sk_lstm_layer_identifier))
     return SK_LSTM;
+  if(!strcmp(line, sk_softmax_layer_identifier))
+    return SK_SOFTMAX;
   return -1;
 }
 
@@ -33,8 +36,6 @@ SK_LOGISTIC sk_layer_parse_logistic(const char *line){
     return SK_TANH;
   if(!strcmp(line, "relu"))
     return SK_RELU;
-  if(!strcmp(line, "softmax"))
-    return SK_SOFTMAX;
   return -1;
 }
 
@@ -50,6 +51,9 @@ void sk_layer_parse(Layer *l, char *src){
     case SK_LSTM:
       sk_lstm_layer_parse(l, src);
       break;
+    case SK_SOFTMAX:
+      sk_softmax_layer_parse(l, src);
+      break;
     default:{
       SK_ERROR("Parse not implemented for this layer type: %d.", l->layertype);
     }
@@ -63,6 +67,9 @@ void sk_layer_allocate(Layer *l){
       break;
     case SK_LSTM:
       sk_lstm_layer_allocate(l);
+      break;
+    case SK_SOFTMAX:
+      sk_softmax_layer_allocate(l);
       break;
     case SK_GRU:
       SK_ERROR("GRU not implemented.");
@@ -83,6 +90,9 @@ void sk_layer_initialize(Layer *l, Tensor p, Tensor g){
       break;
     case SK_LSTM:
       sk_lstm_layer_initialize(l, p, g);
+      break;
+    case SK_SOFTMAX:
+      sk_softmax_layer_initialize(l, p, g);
       break;
     case SK_GRU:{
       SK_ERROR("GRU not implemented.");
@@ -111,10 +121,6 @@ void (*sk_logistic_to_fn(SK_LOGISTIC l))(Tensor, Tensor){
     }
     case SK_RELU:{
       return tensor_relu_precompute;
-      break;
-    }
-    case SK_SOFTMAX:{
-      return tensor_softmax_precompute;
       break;
     }
     default:{
