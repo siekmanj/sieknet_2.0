@@ -10,7 +10,7 @@ int main(){
   srand(1271998);
   setlocale(LC_NUMERIC, "");
 
-#if 0
+#if 1
   float a_mem[] = {-1.0, -1.0, 1.0};
 	float c_mem[] = {0.0, -9.3890561, 0.0};
   Tensor a = create_tensor(SIEKNET_CPU, 3);

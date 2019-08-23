@@ -6,20 +6,14 @@ output: softmax_layer
 
 [fully_connected layer]
 name: input_layer
-logistic: tanh
 size: 32
-
-[lstm layer]
-input: input_layer
-size: 64
-name: hidden_layer
+logistic: tanh
 
 [fully_connected layer]
-input: hidden_layer
-name: hidden_layer_2
-size: 32
-logistic: tanh
+input: input_layer
+name: hidden_layer
+size: 24
 
 [softmax layer]
-input: hidden_layer_2
+input: hidden_layer
 name: softmax_layer

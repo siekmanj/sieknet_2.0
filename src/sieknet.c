@@ -182,6 +182,9 @@ double sk_cost(Layer *l, Tensor y, SK_COST_FN cost){
   if(y.n == 1){
     Tensor grad   = get_subtensor(l->gradient, max_t-1);
     Tensor output = get_subtensor(l->output, max_t-1);
+    //tensor_print(output);
+    //tensor_print(y);
+    //getchar();
     return cost_function(output, y, grad);
   }
   if(y.n == 2){

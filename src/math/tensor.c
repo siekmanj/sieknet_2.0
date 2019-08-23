@@ -291,13 +291,13 @@ void tensor_softmax_precompute(Tensor t, Tensor d){
       // tensor_elementwise_mul(vec, 1/sum);
       // easy peasy, works on cpu/gpu
 
-			float arr_max = 0;
+			double arr_max = 0;
       for(int j = 0; j < vec.size; j++){
         if(tensor_at(vec, j) > arr_max)
 					arr_max = tensor_at(vec, j);
       }
 
-      float sum = 0;
+      double sum = 0;
       for(int j = 0; j < vec.size; j++){
         sum += exp(tensor_at(vec, j) - arr_max);
       }
@@ -330,7 +330,7 @@ void tensor_softmax_precompute(Tensor t, Tensor d){
           for(int k = 0; k < vec.size; k++){
             float s_j = tensor_at(vec, j);
             float s_k = tensor_at(vec, k);
-            tensor_raw(jac)[tensor_get_offset(jac, j, k)] = s_j * ((j == k) - s_k);
+            tensor_raw(jac)[tensor_get_offset(jac, j, k)] = s_k * ((j == k) - s_j);
           }
         }
         pos[t.n - 2]++;
@@ -389,19 +389,31 @@ double tensor_quadratic_cost(Tensor o, Tensor y, Tensor grad){
  * Returns the cross-entropy cost given two column vectors/tensors,
  * and stores the gradient of the cost function in a third tensor.
  */
-double tensor_cross_entropy_cost(Tensor y, Tensor label, Tensor grad){
-  if(y.device != label.device || y.device != grad.device)
+double tensor_cross_entropy_cost(Tensor o, Tensor y, Tensor grad){
+  if(y.device != o.device || y.device != grad.device)
     SK_ERROR("Devices must match.");
 
-  if(y.n != 1 || label.n != 1 || grad.n != 1)
-    SK_ERROR("All tensor dimensions must be 1. Got %lu, %lu, %lu.", y.n, label.n, grad.n);
+  if(y.n != 1 || o.n != 1 || grad.n != 1)
+    SK_ERROR("All tensor dimensions must be 1. Got %lu, %lu, %lu.", y.n, o.n, grad.n);
 
-  if(y.dims[0] != label.dims[0] || y.dims[0] != grad.dims[0])
-    SK_ERROR("All tensors must be of the same length, got lengths %lu, %lu, %lu", y.dims[0], label.dims[0], grad.dims[0]);
+  if(y.dims[0] != o.dims[0] || y.dims[0] != grad.dims[0])
+    SK_ERROR("All tensors must be of the same length, got lengths %lu, %lu, %lu", y.dims[0], o.dims[0], grad.dims[0]);
 
   double cost = 0;
   if(y.device == SIEKNET_CPU){
+    float *o_mem = tensor_raw(o);
+    float *y_mem = tensor_raw(y);
+    float *g_mem = tensor_raw(grad);
+    for(int i = 0; i < y.dims[0]; i++){
+      float o_i = o_mem[i * o.strides[0]];
+      float y_i = y_mem[i * y.strides[0]];
 
+      o_i = MAX(o_i, 1e-3);
+      y_i = MIN(y_i, 0.999);
+
+      cost += - y_i * log(o_i);
+      g_mem[i * grad.strides[0]] = (o_i - y_i) / (o_i * (1 - o_i));
+    }
     return cost;
   }else if(y.device == SIEKNET_GPU){
     SK_ERROR("Tensor cost not implemented on GPU.");

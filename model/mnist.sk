@@ -6,24 +6,15 @@ output: softmax_layer
 
 [fully_connected layer]
 name: layer_a
-logistic: relu
+logistic: sigmoid
 size: 50
 
 [fully_connected layer]
 input: layer_a
 name: layer_b
-logistic: sigmoid
-size: 50
-
-[fully_connected layer]
-input: layer_b
-name: layer_c
-logistic: relu
-size: 35
-
-[fully_connected layer]
-input: layer_c
-name: softmax_layer
-logistic: sigmoid
+logistic: tanh
 size: 10
 
+[softmax layer]
+input: layer_b
+name: softmax_layer

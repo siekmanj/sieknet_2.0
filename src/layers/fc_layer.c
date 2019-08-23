@@ -82,7 +82,11 @@ void sk_fc_layer_backward(Layer *l, size_t t){
     }else continue;
 
     /* Compute weight gradients */
+    //printf("DOING WEIGHT GRADS\n");
+    //tensor_print(x);
+    //tensor_print(g);
     tensor_mmult(x, g, dw); // dW = x * g
+    //tensor_print(dw);
 
     /* Compute input gradients if needed */
     if(dx.data)
@@ -138,8 +142,9 @@ void sk_fc_layer_allocate(Layer *l){
 
   for(int i = 0; i < l->num_input_layers; i++){
     Layer *in = l->input_layers[i];
-    l->num_params += (l->size * in->size) + l->size;
+    l->num_params += (l->size * in->size);
   }
+  l->num_params += l->size;
 
   l->output         = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
   l->gradient       = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);

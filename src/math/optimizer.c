@@ -14,7 +14,7 @@ Optimizer create_optimizer(Tensor params, Tensor gradient, SK_OPTIMIZER_TYPE t){
 
   o.step = sgd_step;
 
-  o.lr = 1e-3;
+  o.lr = 1e-5;
   o.momentum = 0;
 
   if(t < 0)

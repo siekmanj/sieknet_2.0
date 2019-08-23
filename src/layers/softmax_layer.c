@@ -30,6 +30,7 @@ void sk_softmax_layer_forward(Layer *l, size_t t){
 
   size_t logit_offset = 0;
 
+#if 1
   /* Loop through all the input layers and copy to logits */
   for(int i = 0; i < l->num_input_layers; i++){
     Layer *in = l->input_layers[i];
@@ -43,6 +44,14 @@ void sk_softmax_layer_forward(Layer *l, size_t t){
 		tensor_dealloc(logit_x);
 		logit_offset += x.size;
   }
+#else
+  Layer *in = l->input_layers[0];
+
+  /* Get the subtensor for this timestep */
+  Tensor x = in->rank >= l->rank ? in->loutput : get_subtensor(in->output, t);
+  tensor_copy(x, logits);
+
+#endif
 	tensor_softmax_precompute(logits, jacobian);
 }
 
@@ -59,8 +68,10 @@ void sk_softmax_layer_backward(Layer *l, size_t t){
 	Tensor input_grad = get_subtensor(d->input_gradient, t);
 
 	tensor_fill(input_grad, 0.0f);
+	//tensor_mmult(jacobian, gradient, get_subtensor(in->gradient, t));
 	tensor_mmult(jacobian, gradient, input_grad);
 
+#if 1
 	size_t logit_offset = 0;
   for(int i = 0; i < l->num_input_layers; i++){
     Layer *in = l->input_layers[i];
@@ -82,6 +93,9 @@ void sk_softmax_layer_backward(Layer *l, size_t t){
 			continue;
 		}
   }
+#else
+
+#endif
 }
 
 void sk_softmax_layer_wipe(Layer *l){};
