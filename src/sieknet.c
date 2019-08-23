@@ -150,7 +150,7 @@ void sk_forward(Network *n, Tensor x){
   }
 }
 
-float sk_cost(Layer *l, Tensor y, SK_COST_FN cost){
+double sk_cost(Layer *l, Tensor y, SK_COST_FN cost){
   if(y.n > 2)
     SK_ERROR("Cannot currently handle tensors with dimension > 2 as labels.");
 
@@ -160,7 +160,7 @@ float sk_cost(Layer *l, Tensor y, SK_COST_FN cost){
   if(y.n == 2 && y.dims[1] != l->size)
     SK_ERROR("Layer output dimension is %lu but cost tensor received was length %lu\n", l->size, y.dims[1]);
 
-  float (*cost_function)(Tensor, Tensor, Tensor) = NULL;
+  double (*cost_function)(Tensor, Tensor, Tensor) = NULL;
   switch(cost){
     case SK_QUADRATIC_COST:{
       cost_function = tensor_quadratic_cost;
@@ -188,7 +188,7 @@ float sk_cost(Layer *l, Tensor y, SK_COST_FN cost){
     if(y.dims[0] != max_t)
       SK_ERROR("Network timesteps are %lu, but label tensor is a sequence of length %lu. Expected these to match. Aborting.", max_t, y.dims[0]);
 
-    float sum_cost = 0;
+    double sum_cost = 0;
     for(int t = 0; t < max_t; t++){
       Tensor output = get_subtensor(l->output, t);
       Tensor label  = get_subtensor(y, t);

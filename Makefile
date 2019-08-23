@@ -7,5 +7,8 @@ LIB = -lm
 default:
 	$(CC) -Wall main.c $(SRC) $(INC) $(LIB)
 
+gradient_check:
+	$(CC) -Wall example/gradient_check.c $(SRC) $(INC) $(LIB)
+
 mnist:
 	$(CC) -Wall mnist.c $(SRC) $(INC) $(LIB)

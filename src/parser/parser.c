@@ -9,6 +9,9 @@
 
 char *sk_parser_string_from_file(const char *filename){
   FILE *fp = fopen(filename, "rb");
+
+	if(!fp)
+		SK_ERROR("Could not open file '%s'.", filename);
   
   fseek(fp, 0, SEEK_END);
   size_t bytes = ftell(fp) + 1;

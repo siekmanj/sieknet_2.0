@@ -88,7 +88,7 @@ Network sk_create_network(const char *);
 void    sk_save_network(const char *);
 
 void  sk_forward(Network *, Tensor);
-float sk_cost(Layer *, Tensor, SK_COST_FN);
+double sk_cost(Layer *, Tensor, SK_COST_FN);
 void  sk_backward(Network *);
 
 void sk_wipe(Network *n);

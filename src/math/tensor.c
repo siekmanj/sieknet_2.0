@@ -353,7 +353,7 @@ void tensor_softmax_precompute(Tensor t, Tensor d){
  * Returns the euclidean cost given two column vectors/tensors,
  * and stores the gradient of the cost function in a third tensor.
  */
-float tensor_quadratic_cost(Tensor o, Tensor y, Tensor grad){
+double tensor_quadratic_cost(Tensor o, Tensor y, Tensor grad){
   if(y.device != o.device || y.device != grad.device)
     SK_ERROR("Devices must match.");
 
@@ -363,7 +363,7 @@ float tensor_quadratic_cost(Tensor o, Tensor y, Tensor grad){
   if(y.dims[0] != o.dims[0] || y.dims[0] != grad.dims[0])
     SK_ERROR("All tensors must be of the same length, got lengths %lu, %lu, %lu", y.dims[0], o.dims[0], grad.dims[0]);
 
-  float cost = 0;
+  double cost = 0;
   if(y.device == SIEKNET_CPU){
 
     float *o_mem = tensor_raw(o);
@@ -389,7 +389,7 @@ float tensor_quadratic_cost(Tensor o, Tensor y, Tensor grad){
  * Returns the cross-entropy cost given two column vectors/tensors,
  * and stores the gradient of the cost function in a third tensor.
  */
-float tensor_cross_entropy_cost(Tensor y, Tensor label, Tensor grad){
+double tensor_cross_entropy_cost(Tensor y, Tensor label, Tensor grad){
   if(y.device != label.device || y.device != grad.device)
     SK_ERROR("Devices must match.");
 
@@ -399,7 +399,7 @@ float tensor_cross_entropy_cost(Tensor y, Tensor label, Tensor grad){
   if(y.dims[0] != label.dims[0] || y.dims[0] != grad.dims[0])
     SK_ERROR("All tensors must be of the same length, got lengths %lu, %lu, %lu", y.dims[0], label.dims[0], grad.dims[0]);
 
-  float cost = 0;
+  double cost = 0;
   if(y.device == SIEKNET_CPU){
 
     return cost;

@@ -222,7 +222,7 @@ int main(){
     tensor_dealloc(c);
   }
 
-	const size_t t = 10;
+	const size_t t = 100;
 	const float epsilon = 1e-3;
 	const float threshold = 1e-5;
 	Network n = sk_create_network(test);
@@ -260,6 +260,8 @@ int main(){
 
       double empirical_grad = (c1 - c2) / (2 * epsilon);
 			double diff = predicted_grad - empirical_grad;
+			if(i == 5)
+				printf("diff: %f (%f - %f), from %f and %f\n", diff, predicted_grad, empirical_grad, c1, c2);
 			/* 
 			 * Relative difference reveals a pretty high error [1e-3, 1e-4].
 		   * While I am not entirely confident that I've implemented my backprop
@@ -290,16 +292,16 @@ int main(){
     size_t count = 0;
     float *params = tensor_raw(n.params);
     float *p_grad = tensor_raw(n.param_grad);
+		float c0 = 0;
 		for(int i_t = 0; i_t < t; i_t++){
 			Tensor x_t = get_subtensor(x, i_t);
 			Tensor y_t = get_subtensor(y, i_t);
 			sk_forward(&n, x_t);
-			sk_cost(n.layers[n.depth-1], y_t, SK_QUADRATIC_COST);
+			c0 += sk_cost(n.layers[n.depth-1], y_t, SK_QUADRATIC_COST);
 		}
 		sk_backward(&n);
 		sk_wipe(&n);
     for(int i = 0; i < n.num_params; i++){
-
       float predicted_grad = p_grad[i];
 
       params[i] += epsilon;
@@ -339,6 +341,9 @@ int main(){
 
       double empirical_grad = (c1 - c2) / (2 * epsilon);
 			double diff = predicted_grad - empirical_grad;
+			if(i == 5)
+				printf("diff: %f (%f - %f), from %f and %f\n", diff, predicted_grad, empirical_grad, c1, c2);
+
 			/* 
 			 * Relative difference reveals a pretty high error [1e-3, 1e-4].
 		   * While I am not entirely confident that I've implemented my backprop

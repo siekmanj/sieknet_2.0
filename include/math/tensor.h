@@ -70,8 +70,8 @@ void tensor_selu_precompute(Tensor, Tensor);
 
 void tensor_softmax_precompute(Tensor, Tensor);
 
-float tensor_quadratic_cost(Tensor, Tensor, Tensor);
-float tensor_cross_entropy_cost(Tensor, Tensor, Tensor);
+double tensor_quadratic_cost(Tensor, Tensor, Tensor);
+double tensor_cross_entropy_cost(Tensor, Tensor, Tensor);
 
 float *tensor_raw(Tensor);
 
