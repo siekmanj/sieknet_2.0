@@ -276,7 +276,7 @@ void tensor_relu_precompute(Tensor t, Tensor d){
       float *t_raw = &tensor_raw(t)[tensor_flat_idx(t, pos, t.n)];
       float *d_raw = &tensor_raw(d)[tensor_flat_idx(d, pos, d.n)];
       *t_raw = *t_raw > 0 ? *t_raw : 0;
-      *d_raw = *d_raw > 0 ? 1 : 0;
+      *d_raw = *t_raw > 0 ? 1 : 0;
 
       pos[t.n - 1]++;
       for(int j = t.n - 1; j > 0; j--){
@@ -319,7 +319,7 @@ void tensor_softmax_precompute(Tensor t, Tensor d){
       }
 
       for(int j = 0; j < vec.size; j++){
-        tensor_raw(vec)[tensor_get_offset(vec, j)] = exp(tensor_at(vec, j) - arr_max) / sum;
+        tensor_raw(vec)[tensor_get_offset(vec, j)] = (double)exp(tensor_at(vec, j) - arr_max) / (double)sum;
       }
 
       pos[t.n - 2]++;

@@ -23,8 +23,8 @@ int main(int argc, char **argv){
 	/*
 	 * Note: for small values of t, underflow may cause unusually large relative errors.
 	 */
-	const size_t t = 65;
-	const double epsilon = 2e-2;
+	const size_t t = 200;
+	const double epsilon = 1e-2;
 	const double threshold = 1e-4;
 
 	Network n = sk_create_network(argv[1]);

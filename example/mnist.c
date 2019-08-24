@@ -84,11 +84,11 @@ int main(int argc, char **argv){
   int args_read = 0;
   while(1){
     static struct option long_options[] = {
-      {"training_set",     required_argument, 0,  0 },
-      {"training_labels",  required_argument, 0,  0 },
-      {"test_set",         required_argument, 0,  0 },
-      {"test_labels",      required_argument, 0,  0 },
-      {0,                  0,                 0,  0 },
+      {"training_set",    required_argument, 0,  0 },
+      {"training_labels", required_argument, 0,  0 },
+      {"test_set",        required_argument, 0,  0 },
+      {"test_labels",     required_argument, 0,  0 },
+      {0,                 0,                 0,  0 },
     };
 
     int opt_idx;
@@ -133,7 +133,7 @@ int main(int argc, char **argv){
   const size_t dataset_len = data.dims[0];
   const size_t testset_len = test.dims[0];
   const size_t batch_size  = 16;
-  const size_t epochs      = 3;
+  const size_t epochs      = 5;
 
   Network n = sk_create_network("model/mnist.sk");
   Optimizer o = create_optimizer(n.params, n.param_grad, SK_SGD);
@@ -151,8 +151,6 @@ int main(int argc, char **argv){
         sk_forward(&n, x);
         if(output_layer)
           epoch_cost += sk_cost(n.output_layer, y, SK_CROSS_ENTROPY_COST);
-       //printf("Network guess: %d.\n", tensor_argmax(get_subtensor(n.output_layer->output, i)));
-       //printf("Label:         %d\n\n", tensor_argmax(y));
       }
       sk_backward(&n);
       o.step(o);
@@ -167,7 +165,6 @@ int main(int argc, char **argv){
     sk_forward(&n, x);
     int guess = tensor_argmax(get_subtensor(n.output_layer->output, 0));
     int label = tensor_argmax(y);
-    printf("Guess %d vs label %d\n", guess, label);
     if(guess == label)
       correct++;
   }

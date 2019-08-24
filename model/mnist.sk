@@ -7,12 +7,12 @@ output: softmax_layer
 [fully_connected layer]
 name: layer_a
 logistic: sigmoid
-size: 50
+size: 100
 
 [fully_connected layer]
 input: layer_a
 name: layer_b
-logistic: tanh
+logistic: relu
 size: 10
 
 [softmax layer]

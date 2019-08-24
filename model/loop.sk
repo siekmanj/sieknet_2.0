@@ -20,8 +20,8 @@ input: layer_a, layer_b
 logistic: sigmoid
 size: 3
 
-[fully_connected layer]
+[softmax layer]
 name: layer_d
 input: layer_c, layer_b, layer_d
 logistic: sigmoid
-size: 1
+size: 5

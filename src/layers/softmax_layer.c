@@ -81,7 +81,7 @@ void sk_softmax_layer_backward(Layer *l, size_t t){
     if(target_t >= 0 && in->gradient.data){
       Tensor dx = get_subtensor(in->gradient, target_t);
 
-			Tensor logit_gradient  = get_subtensor_reshape(input_grad, logit_offset, dx.size);
+			Tensor logit_gradient = get_subtensor_reshape(input_grad, logit_offset, dx.size);
 
 			tensor_elementwise_add(logit_gradient, dx, dx);
 			tensor_dealloc(logit_gradient);
