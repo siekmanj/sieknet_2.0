@@ -40,6 +40,22 @@ float *tensor_raw(Tensor t){
 }
 
 /*
+ * Returns the argmax of a 1d tensor.
+ */
+int tensor_argmax(Tensor t){
+  if(t.n != 1)
+    SK_ERROR("can only get argmax of vectors");
+
+  int argmax = 0;
+  for(int i = 1; i < t.size; i++){
+    float curr = tensor_at(t, i);
+    if(curr > tensor_at(t, argmax))
+      argmax = i;
+  }
+  return argmax;
+}
+
+/*
  * Computes the index offset of a location in the tensor's
  * memory using 'arr' as an array of indices.
  */

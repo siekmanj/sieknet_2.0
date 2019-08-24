@@ -11,4 +11,4 @@ gradient_check:
 	$(CC) -Wall example/gradient_check.c $(SRC) $(INC) $(LIB) -o bin/gradient_check
 
 mnist:
-	$(CC) -Wall mnist.c $(SRC) $(INC) $(LIB)
+	$(CC) -Wall example/mnist.c $(SRC) $(INC) $(LIB) -o bin/mnist

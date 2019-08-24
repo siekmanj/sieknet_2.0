@@ -68,7 +68,6 @@ void sk_softmax_layer_backward(Layer *l, size_t t){
 	Tensor input_grad = get_subtensor(d->input_gradient, t);
 
 	tensor_fill(input_grad, 0.0f);
-	//tensor_mmult(jacobian, gradient, get_subtensor(in->gradient, t));
 	tensor_mmult(jacobian, gradient, input_grad);
 
 #if 1

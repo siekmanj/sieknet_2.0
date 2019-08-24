@@ -45,6 +45,8 @@ Tensor tensor_to_subtensor_reshape(Tensor, size_t, size_t *, size_t);
 #define tensor_at(tensor, ...) tensor_at_idx(tensor, (size_t[]){__VA_ARGS__}, sizeof((size_t[]){__VA_ARGS__})/sizeof(size_t))
 float tensor_at_idx(Tensor, size_t *, size_t);
 
+int tensor_argmax(Tensor);
+
 void tensor_to(TENSOR_DEVICE, Tensor *);
 
 float tensor_reduce_dot(const Tensor, const Tensor);
