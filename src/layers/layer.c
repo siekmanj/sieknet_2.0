@@ -8,6 +8,7 @@
 #include <fc_layer.h>
 #include <lstm_layer.h>
 #include <softmax_layer.h>
+#include <ntm_layer.h>
 
 int sk_contains_layer(Layer **arr, Layer *comp, size_t arrlen){
   for(int i = 0; i < arrlen; i++){
@@ -26,6 +27,8 @@ SK_LAYER_TYPE sk_layer_parse_identifier(const char *line){
     return SK_LSTM;
   if(!strcmp(line, sk_softmax_layer_identifier))
     return SK_SOFTMAX;
+  if(!strcmp(line, sk_ntm_layer_identifier))
+    return SK_NTM;
   return -1;
 }
 
@@ -36,6 +39,8 @@ SK_LOGISTIC sk_layer_parse_logistic(const char *line){
     return SK_TANH;
   if(!strcmp(line, "relu"))
     return SK_RELU;
+  if(!strcmp(line, "linear"))
+    return SK_LINEAR;
   return -1;
 }
 
@@ -54,22 +59,28 @@ void sk_layer_parse(Layer *l, char *src){
     case SK_SOFTMAX:
       sk_softmax_layer_parse(l, src);
       break;
+    case SK_NTM:
+      sk_ntm_layer_parse(l, src);
+      break;
     default:{
       SK_ERROR("Parse not implemented for this layer type: %d.", l->layertype);
     }
   }
 }
 
-void sk_layer_allocate(Layer *l){
+size_t sk_layer_count_params(Layer *l){
   switch(l->layertype){
     case SK_FF:
-      sk_fc_layer_allocate(l);
+      return sk_fc_layer_count_params(l);
       break;
     case SK_LSTM:
-      sk_lstm_layer_allocate(l);
+      return sk_lstm_layer_count_params(l);
       break;
     case SK_SOFTMAX:
-      sk_softmax_layer_allocate(l);
+      return 0;
+      break;
+    case SK_NTM:
+      return sk_ntm_layer_count_params(l);
       break;
     case SK_GRU:
       SK_ERROR("GRU not implemented.");
@@ -81,6 +92,7 @@ void sk_layer_allocate(Layer *l){
       SK_ERROR("Not implemented.");
       break;
   }
+  return 0;
 }
 
 void sk_layer_initialize(Layer *l, Tensor p, Tensor g){
@@ -92,7 +104,10 @@ void sk_layer_initialize(Layer *l, Tensor p, Tensor g){
       sk_lstm_layer_initialize(l, p, g);
       break;
     case SK_SOFTMAX:
-      sk_softmax_layer_initialize(l, p, g);
+      sk_softmax_layer_initialize(l);
+      break;
+    case SK_NTM:
+      return sk_ntm_layer_initialize(l, p, g);
       break;
     case SK_GRU:{
       SK_ERROR("GRU not implemented.");
@@ -111,21 +126,20 @@ void sk_layer_initialize(Layer *l, Tensor p, Tensor g){
 
 void (*sk_logistic_to_fn(SK_LOGISTIC l))(Tensor, Tensor){
   switch(l){
-    case SK_SIGMOID:{
+    case SK_SIGMOID:
       return tensor_sigmoid_precompute;
       break;
-    }
-    case SK_TANH:{
+    case SK_TANH:
       return tensor_tanh_precompute;
       break;
-    }
-    case SK_RELU:{
+    case SK_RELU:
       return tensor_relu_precompute;
       break;
-    }
-    default:{
+    case SK_LINEAR:
+      return tensor_linear_precompute;
+      break;
+    default:
       SK_ERROR("Logistic function not implemented.");
       break;
-    }
   }
 }

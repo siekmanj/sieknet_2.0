@@ -222,14 +222,18 @@ void sk_lstm_layer_parse(Layer *l, char *src){
   l->name = name;
 }
 
-void sk_lstm_layer_allocate(Layer *l){
+size_t sk_lstm_layer_count_params(Layer *l){
   l->num_params = 0;
 
   for(int i = 0; i < l->num_input_layers; i++){
     Layer *in = l->input_layers[i];
     l->num_params += 4 * (l->size * in->size + l->size);
   }
-  
+  //l->num_params += 4 * (l->size);
+  return l->num_params;
+}
+
+void sk_lstm_layer_initialize(Layer *l, Tensor p, Tensor g){
   l->output   = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
   l->gradient = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
   l->loutput  = create_tensor(SIEKNET_CPU, l->size);
@@ -253,10 +257,6 @@ void sk_lstm_layer_allocate(Layer *l){
 
   d->last_cell_state = create_tensor(SIEKNET_CPU, l->size);
   
-  l->data = d;
-}
-
-void sk_lstm_layer_initialize(Layer *l, Tensor p, Tensor g){
   size_t input_dim = 0;
   for(int i = 0; i < l->num_input_layers; i++)
     input_dim += l->input_layers[i]->size;
@@ -266,7 +266,6 @@ void sk_lstm_layer_initialize(Layer *l, Tensor p, Tensor g){
    * which is not used anywhere outside of this file (LSTM_layer_data).
    */
   size_t param_offset = l->param_idx;
-  LSTM_layer_data *d = (LSTM_layer_data *)l->data;
 
   d->bias      = get_subtensor_reshape(p, param_offset, 4, l->size);
   d->bias_grad = get_subtensor_reshape(g, param_offset, 4, l->size);
@@ -288,5 +287,6 @@ void sk_lstm_layer_initialize(Layer *l, Tensor p, Tensor g){
 
   l->output.dims[0] = 1;
   l->gradient.dims[0] = 1;
+  l->data = d;
 }
 

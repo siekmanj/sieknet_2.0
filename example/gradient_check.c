@@ -23,11 +23,16 @@ int main(int argc, char **argv){
 	/*
 	 * Note: for small values of t, underflow may cause unusually large relative errors.
 	 */
-	const size_t t = 200;
+	const size_t t = 100;
 	const double epsilon = 1e-2;
 	const double threshold = 1e-4;
 
 	Network n = sk_create_network(argv[1]);
+
+  printf("Loaded model: '%s'\n", n.name);
+  for(int i = 0; i < n.depth; i++){
+    printf("\tExecution rank %d: '%s'\n", n.layers[i]->rank, n.layers[i]->name);
+  }
 	Tensor x = create_tensor(SIEKNET_CPU, t, n.input_dimension);
 	Tensor y = create_tensor(SIEKNET_CPU, t, n.layers[n.depth-1]->output.dims[1]);
 	tensor_fill_random(x, 0, 1);
@@ -66,8 +71,7 @@ int main(int argc, char **argv){
 		double empirical_grad = (c1 - c2) / (2 * epsilon);
 		double diff = (predicted_grad - empirical_grad);
 		double relative = (fabs(diff) / MAX(fabs(predicted_grad), fabs(empirical_grad)));
-    printf("%f vs %f\n", predicted_grad, empirical_grad);
-    //
+    //printf("%f vs %f\n", predicted_grad, empirical_grad);
     if(isnan(relative)){
       printf("\n(warning: zero parameter)\n");
       continue;

@@ -28,6 +28,20 @@ float normal(float mean, float std){
 	return mean + norm * std;
 }
 
+/*
+ * Returns an int if two tensors have the same dimensions
+ */
+int tensor_dimensions_match(Tensor a, Tensor b){
+  if(a.n != b.n)
+    return 0;
+
+  for(int i = 0; i < a.n; i++)
+    if(a.dims[i] != b.dims[i])
+      return 0;
+
+  return 1;
+}
+
 /* 
  * Returns the raw pointer to memory contained by tensor.
  */
@@ -80,6 +94,30 @@ float tensor_at_idx(Tensor t, size_t *arr, size_t len){
 
   }
   return -1;
+}
+
+/*
+ * Returns the cosine similarity of two tensors.
+ * Reductions are cheaper on the CPU probably.
+ */
+float tensor_cosine_similarity(Tensor a, Tensor b){
+  if(!tensor_dimensions_match(a, b))
+    SK_ERROR("Tensor dims must match!");
+ 
+  if(a.n != 1 || b.n != 1)
+    SK_ERROR("Can only do cosine similarity of two vectors.");
+
+  float dot_product = 0;
+  float a_mag = 0;
+  float b_mag = 0;
+  for(int i = 0; i < a.size; i++){
+    float a_i = tensor_at(a, i);
+    float b_i = tensor_at(b, i);
+    dot_product += a_i * b_i;
+    a_mag += a_i * a_i;
+    b_mag += b_i * b_i;
+  }
+  return dot_product / sqrt(a_mag * b_mag);
 }
 
 /*
@@ -288,6 +326,14 @@ void tensor_relu_precompute(Tensor t, Tensor d){
     }
   }else
     SK_ERROR("Not implemented.");
+}
+
+/*
+ * Performs a linear transform on a tensor.
+ * (i.e., doesn't do anything)
+ */
+void tensor_linear_precompute(Tensor t, Tensor d){
+  tensor_fill(d, 1.0f);
 }
 
 /*

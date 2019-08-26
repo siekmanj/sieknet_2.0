@@ -1,0 +1,23 @@
+[network]
+name: turing
+input_dimension: 16
+input: controller
+output: softmax_layer
+
+[lstm layer]
+name: controller
+size: 16
+
+[ntm layer]
+input: controller
+name: memory
+
+[fully_connected layer]
+input: memory
+name: output
+size: 8
+logistic: linear
+
+[softmax layer]
+input: output
+name: softmax_layer

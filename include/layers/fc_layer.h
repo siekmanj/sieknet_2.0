@@ -8,7 +8,7 @@ static const char sk_fc_layer_identifier[] = "[fully_connected layer]";
 
 void sk_fc_layer_parse(Layer *, const char *);
 
-void sk_fc_layer_allocate(Layer *);
+size_t sk_fc_layer_count_params(Layer *);
 
 void sk_fc_layer_initialize(Layer *, Tensor, Tensor);
 

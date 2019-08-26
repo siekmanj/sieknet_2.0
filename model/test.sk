@@ -12,6 +12,7 @@ logistic: tanh
 [fully_connected layer]
 input: input_layer
 name: hidden_layer
+logistic: linear
 size: 24
 
 [softmax layer]

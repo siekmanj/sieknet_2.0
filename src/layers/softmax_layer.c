@@ -30,13 +30,15 @@ void sk_softmax_layer_forward(Layer *l, size_t t){
 
   size_t logit_offset = 0;
 
-#if 1
   /* Loop through all the input layers and copy to logits */
   for(int i = 0; i < l->num_input_layers; i++){
     Layer *in = l->input_layers[i];
 
     /* Get the subtensor for this timestep */
-    Tensor x = in->rank >= l->rank ? in->loutput : get_subtensor(in->output, t);
+    //Tensor x = in->rank >= l->rank ? in->loutput : get_subtensor(in->output, t);
+    Tensor x = get_subtensor(in->output, t);
+    printf("tensor in, '%s' %p\n", in->name, x.data);
+    tensor_print(x);
 
 		Tensor logit_x = get_subtensor_reshape(logits, logit_offset, x.size);
 
@@ -44,14 +46,6 @@ void sk_softmax_layer_forward(Layer *l, size_t t){
 		tensor_dealloc(logit_x);
 		logit_offset += x.size;
   }
-#else
-  Layer *in = l->input_layers[0];
-
-  /* Get the subtensor for this timestep */
-  Tensor x = in->rank >= l->rank ? in->loutput : get_subtensor(in->output, t);
-  tensor_copy(x, logits);
-
-#endif
 	tensor_softmax_precompute(logits, jacobian);
 }
 
@@ -70,7 +64,6 @@ void sk_softmax_layer_backward(Layer *l, size_t t){
 	tensor_fill(input_grad, 0.0f);
 	tensor_mmult(jacobian, gradient, input_grad);
 
-#if 1
 	size_t logit_offset = 0;
   for(int i = 0; i < l->num_input_layers; i++){
     Layer *in = l->input_layers[i];
@@ -92,9 +85,6 @@ void sk_softmax_layer_backward(Layer *l, size_t t){
 			continue;
 		}
   }
-#else
-
-#endif
 }
 
 void sk_softmax_layer_wipe(Layer *l){};
@@ -121,9 +111,14 @@ void sk_softmax_layer_parse(Layer *l, char *src){
 /*
  * Allocates the memory for a fully-connected layer.
  */
-void sk_softmax_layer_allocate(Layer *l){
-  l->num_params = 0;
+size_t sk_softmax_layer_count_params(Layer *l){
+	return 0;
+}
 
+/*
+ * Allocates things
+ */
+void sk_softmax_layer_initialize(Layer *l){
   size_t input_dim = 0;
   for(int i = 0; i < l->num_input_layers; i++)
     input_dim += l->input_layers[i]->size;
@@ -143,12 +138,6 @@ void sk_softmax_layer_allocate(Layer *l){
 	d->softmax_jacobian = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size, l->size);
 	d->input_gradient   = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
 	l->data = d;
-	
 }
-
-/*
- * Doesn't do a damn thing.
- */
-void sk_softmax_layer_initialize(Layer *l, Tensor p, Tensor g){}
 
 

@@ -36,8 +36,8 @@ static void initialize_network(Network *n){
   for(int i = 0; i < n->depth; i++){
     Layer *l = n->layers[i];
     l->param_idx = param_idx;
-    sk_layer_allocate(l);
-    param_idx += l->num_params;
+    param_idx += sk_layer_count_params(l);
+    //param_idx += l->num_params;
   }
   n->params     = create_tensor(SIEKNET_CPU, param_idx);
   n->param_grad = create_tensor(SIEKNET_CPU, param_idx);
@@ -182,9 +182,6 @@ double sk_cost(Layer *l, Tensor y, SK_COST_FN cost){
   if(y.n == 1){
     Tensor grad   = get_subtensor(l->gradient, max_t-1);
     Tensor output = get_subtensor(l->output, max_t-1);
-    //tensor_print(output);
-    //tensor_print(y);
-    //getchar();
     return cost_function(output, y, grad);
   }
   if(y.n == 2){

@@ -9,7 +9,7 @@
 typedef enum sk_cost_fn   {SK_QUADRATIC_COST, SK_CROSS_ENTROPY_COST} SK_COST_FN;
 typedef enum sk_logistic  {SK_SIGMOID, SK_TANH, SK_RELU, SK_LINEAR} SK_LOGISTIC;
 typedef enum sk_init_type {SK_XAVIER, SK_HE} SK_INIT_TYPE;
-typedef enum sk_type      {SK_FF, SK_LSTM, SK_SOFTMAX, SK_GRU, SK_ATT} SK_LAYER_TYPE;
+typedef enum sk_type      {SK_FF, SK_LSTM, SK_SOFTMAX, SK_NTM, SK_GRU, SK_ATT} SK_LAYER_TYPE;
 
 typedef struct layer_{ 
   char  *name;
@@ -29,7 +29,6 @@ typedef struct layer_{
   int rank;
   int visited;
 
-  Tensor *input_gradient;
   Tensor gradient;
   Tensor output;
   Tensor loutput;
@@ -94,7 +93,7 @@ void  sk_backward(Network *);
 void sk_wipe(Network *n);
 
 void sk_layer_parse(Layer *, char *);
-void sk_layer_allocate(Layer *);
+size_t sk_layer_count_params(Layer *);
 void sk_layer_initialize(Layer *, Tensor, Tensor);
 
 int contains_layer(Layer **, Layer *, size_t);

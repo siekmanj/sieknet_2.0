@@ -6,22 +6,23 @@ output: layer_d
 
 [fully_connected layer]
 name: layer_a
-logistic: tanh
+logistic: linear
 size: 6
 
 [fully_connected layer]
 name: layer_b
 input: layer_a, layer_c
+logistic: linear
 size: 5
 
 [fully_connected layer]
 name: layer_c
 input: layer_a, layer_b
-logistic: sigmoid
+logistic: linear
 size: 3
 
 [softmax layer]
 name: layer_d
-input: layer_c, layer_b, layer_d
+input: layer_c, layer_a, layer_b
 logistic: sigmoid
 size: 5

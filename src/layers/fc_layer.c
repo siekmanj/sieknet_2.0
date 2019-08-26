@@ -137,7 +137,7 @@ void sk_fc_layer_parse(Layer *l, char *src){
 /*
  * Allocates the memory for a fully-connected layer.
  */
-void sk_fc_layer_allocate(Layer *l){
+size_t sk_fc_layer_count_params(Layer *l){
   l->num_params = 0;
 
   for(int i = 0; i < l->num_input_layers; i++){
@@ -145,7 +145,14 @@ void sk_fc_layer_allocate(Layer *l){
     l->num_params += (l->size * in->size);
   }
   l->num_params += l->size;
+  return l->num_params;
+}
 
+/*
+ * Performs weight initialization, subtensoring from network
+ * parameter/parameter gradient tensors, allocates memory
+ */
+void sk_fc_layer_initialize(Layer *l, Tensor p, Tensor g){
   l->output         = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
   l->gradient       = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
 
@@ -160,14 +167,7 @@ void sk_fc_layer_allocate(Layer *l){
   d->weights           = calloc(l->num_input_layers, sizeof(Tensor));
   d->weight_grad       = calloc(l->num_input_layers, sizeof(Tensor));
   d->intermediate_grad = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
-  l->data = d;
-}
 
-/*
- * Performs weight initialization, subtensoring from network
- * parameter/parameter gradient tensors.
- */
-void sk_fc_layer_initialize(Layer *l, Tensor p, Tensor g){
   size_t input_dim = 0;
   for(int i = 0; i < l->num_input_layers; i++)
     input_dim += l->input_layers[i]->size;
@@ -179,7 +179,6 @@ void sk_fc_layer_initialize(Layer *l, Tensor p, Tensor g){
    * layers.
    */
   size_t param_offset = l->param_idx;
-  FC_layer_data *d = (FC_layer_data *)l->data;
 
   d->bias      = get_subtensor_reshape(p, param_offset, l->size);
   d->bias_grad = get_subtensor_reshape(g, param_offset, l->size);
@@ -201,5 +200,6 @@ void sk_fc_layer_initialize(Layer *l, Tensor p, Tensor g){
 
   l->output.dims[0] = 1;
   l->gradient.dims[0] = 1;
+  l->data = d;
 }
 

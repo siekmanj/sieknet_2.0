@@ -68,7 +68,7 @@ Tensor tensor_clone(TENSOR_DEVICE, Tensor);
 void tensor_sigmoid_precompute(Tensor, Tensor);
 void tensor_tanh_precompute(Tensor, Tensor);
 void tensor_relu_precompute(Tensor, Tensor);
-void tensor_selu_precompute(Tensor, Tensor);
+void tensor_linear_precompute(Tensor, Tensor);
 
 void tensor_softmax_precompute(Tensor, Tensor);
 

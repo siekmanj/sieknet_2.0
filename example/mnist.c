@@ -139,6 +139,14 @@ int main(int argc, char **argv){
   Optimizer o = create_optimizer(n.params, n.param_grad, SK_SGD);
   o.lr = 0.01;
 
+  printf("   _____ ____________ __ _   ______________\n");
+  printf("  / ___//  _/ ____/ //_// | / / ____/_	__/\n");
+  printf("  \\__ \\ / // __/ / ,<  /  |/ / __/   / /   \n");
+  printf(" ___/ // // /___/ /| |/ /|  / /___  / /    \n");
+  printf("/____/___/_____/_/ |_/_/ |_/_____/ /_/	   \n");
+  printf("																					 \n");
+  printf("MNIST demo\n");
+
   Layer *output_layer = n.output_layer;
   for(int epoch = 0; epoch < epochs; epoch++){
     float epoch_cost = 0.0f;

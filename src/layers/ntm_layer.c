@@ -6,6 +6,9 @@
 #include <layer.h>
 #include <parser.h>
 
+#include <fc_layer.h>
+#include <softmax_layer.h>
+
 /*
  * k - key vector
  * b - key strength (scalar)
@@ -15,33 +18,23 @@
  * e - erase vector
  * a - add vector
  */
-#ifdef SIEKNET_NTM
 
 typedef enum head_mode_{NTM_READ, NTM_WRITE} NTM_HEAD_MODE;
 
 typedef struct ntm_head_{
-  
-  Tensor *key_weights;
-  Tensor key_bias;
-  Tensor key;
+  // fully-connected layers
+  Layer fc_key;
+  Layer fc_key_strength;
+  Layer fc_interpolation_gate;
+  Layer fc_sharpening_factor;
+  Layer fc_shift_factor;
+  Layer fc_erase_vector;
+  Layer fc_add_vector;
 
-  Tensor *key_strength_weights;
-  Tensor key_strength_bias;
-  Tensor key_strength;
+  Layer key_softmax;
+  Layer shift_softmax;
 
-  Tensor *interpolation_gate_weights;
-  Tensor interpolation_gate_bias;
-  Tensor interpolation_gate;
-
-  Tensor *sharpening_factor_weights;
-  Tensor sharpening_factor_bias;
-  Tensor sharpening_factor;
-
-  Tensor *shift_factor_weights;
-  Tensor shift_factor_bias;
-  Tensor shift_factor;
-
-
+  size_t num_params;
 
   NTM_HEAD_MODE mode;
 
@@ -50,34 +43,176 @@ typedef struct ntm_head_{
 typedef struct ntm_data_{
 
   Tensor memory;
-  Tensor logits;
-  Tensor jacobian;
+  NTM_head read_head;
+  NTM_head write_head;
+
+  size_t mem_len;
 
 } NTM_layer_data;
+
+static void sk_ntm_head_forward(NTM_head *h, size_t t){
+  sk_fc_layer_forward(&h->fc_key, t);
+  sk_fc_layer_forward(&h->fc_key_strength, t);
+  sk_fc_layer_forward(&h->fc_interpolation_gate, t);
+  sk_fc_layer_forward(&h->fc_sharpening_factor, t);
+  sk_fc_layer_forward(&h->fc_shift_factor, t);
+  sk_fc_layer_forward(&h->fc_erase_vector, t);
+  sk_fc_layer_forward(&h->fc_add_vector, t);
+
+  sk_softmax_layer_forward(&h->key_softmax, t);
+  sk_softmax_layer_forward(&h->shift_softmax, t);
+
+  printf("shoul have been %p not %p\n", h->fc_key.output.data, h->fc_key.loutput.data);
+  tensor_print(get_subtensor(h->fc_key.output, t));
+  tensor_print(get_subtensor(h->key_softmax.output, t));
+  exit(1);
+
+  /*
+  for(int i = 0; i < l->num_input_layers; i++){
+    Layer *in = l->input_layers[i];
+
+    Tensor x = in->rank >= l->rank ? in->loutput : in->output;
+    x        = x.n == 1 ? x : get_subtensor(x, t);
+    printf("\tGetting input from '%s'\n", l->input_layers[i]->name);
+    tensor_print(x);
+  }
+  */
+
+}
 
 void sk_ntm_layer_forward(Layer *l, size_t t){
   NTM_layer_data *d = (NTM_layer_data *)l->data;
 
-  Tensor beta = ...;
-  Tensor key = ...;
-  Tensor mem = get_subtensor(d->memory, t);
+  sk_ntm_head_forward(&d->read_head, t);
 
-  Tensor logits = get_subtensor(d->logits, t);
+  /* Zero the output tensor for this timestep */
+  Tensor y = get_subtensor(l->output, t);
+  tensor_fill(y, 0.0f);
 
-  tensor_cosine_similarity(key, mem, logits);
-  tensor_scalar_mul(logits, beta);
+  getchar();
 
-  tensor_softmax(logits, jacobian);
 }
 
 void sk_ntm_layer_backward(Layer *l, size_t t){}
 
 void sk_ntm_layer_wipe(Layer *l){}
 
-void sk_ntm_layer_parse(Layer *l, char *src){}
+void sk_ntm_layer_parse(Layer *l, char *src){
+  NTM_layer_data *d = calloc(sizeof(NTM_layer_data), 1);
+  d->mem_len = 32;
 
-void sk_ntm_layer_allocate(Layer *l){}
+  if(!sk_parser_find_string("name", src, &l->name))
+    SK_ERROR("Unable to parse fc-layer attribute 'name'.");
 
-void sk_ntm_layer_initialize(Layer *l, Tensor p, Tensor g){}
-#endif
+  size_t num_names = 0;
+  char **input_names;
+  sk_parser_find_strings("input", src, &input_names, &num_names);
+  l->input_names = input_names;
+  l->num_input_layers = num_names;
 
+  l->data = d;
+
+  l->size = 16;
+}
+
+size_t sk_ntm_layer_count_params(Layer *l){
+  NTM_layer_data *d = (NTM_layer_data *)l->data;
+
+  /*
+   * key vector, add vector, erase vector (3xdim)
+   * key strength, blending factor, exponent (3x1)
+   * shift weighting (3x1)
+   */
+  size_t head_output_dim = 3 * d->mem_len + 3 + 3;
+
+  l->num_params = 0;
+  for(int i = 0; i < l->num_input_layers; i++){
+    l->num_params += l->input_layers[i]->size * head_output_dim;
+    l->num_params += l->input_layers[i]->size * head_output_dim;
+  }
+  return l->num_params;
+}
+
+static Layer init_fc_sublayer(Layer *parent, Layer **inputs, size_t num_inputs, size_t size, SK_LOGISTIC logistic, Tensor p, Tensor g, size_t param_offset){
+  Layer ret = {0};
+  ret.name                  = "ntm-internal";
+  ret.size                  = size;
+  ret.num_input_layers      = num_inputs;
+  ret.input_layers          = inputs;
+  ret.rank                  = parent->rank;
+  ret.logistic              = logistic;
+  ret.weight_initialization = SK_XAVIER;
+  ret.param_idx             = param_offset;
+  ret.num_params            = sk_fc_layer_count_params(&ret);
+  sk_fc_layer_initialize(&ret, p, g);
+  return ret;
+}
+
+static Layer init_softmax_sublayer(Layer *input){
+  Layer ret = {0};
+  ret.input_layers          = (Layer**)malloc(sizeof(Layer*));
+  ret.name                  = "ntm-internal";
+  ret.size                  = input->size;
+  ret.num_input_layers      = 1;
+  *ret.input_layers         = input;
+  ret.rank                  = input->rank + 1;
+  sk_softmax_layer_initialize(&ret);
+  printf("initialized with %p\n", ret.input_layers[0]->output.data);
+  return ret;
+}
+
+static NTM_head create_ntm_head(Layer *l, size_t mem_len, NTM_HEAD_MODE mode, Tensor p, Tensor g, size_t param_idx){
+  NTM_head h;
+  size_t param_offset = 0;
+  h.fc_key          = init_fc_sublayer(l, l->input_layers, l->num_input_layers, mem_len, SK_LINEAR, p, g, param_offset);
+  param_offset += h.fc_key.num_params;
+
+  h.fc_key_strength = init_fc_sublayer(l, l->input_layers, l->num_input_layers, 1, SK_SIGMOID, p, g, param_offset);
+  param_offset += h.fc_key_strength.num_params;
+
+  h.fc_interpolation_gate = init_fc_sublayer(l, l->input_layers, l->num_input_layers, 1, SK_SIGMOID, p, g, param_offset);
+  param_offset += h.fc_interpolation_gate.num_params;
+
+  h.fc_sharpening_factor = init_fc_sublayer(l, l->input_layers, l->num_input_layers, 1, SK_SIGMOID, p, g, param_offset);
+  param_offset += h.fc_sharpening_factor.num_params;
+
+  h.fc_shift_factor= init_fc_sublayer(l, l->input_layers, l->num_input_layers, 3, SK_SIGMOID, p, g, param_offset);
+  param_offset += h.fc_shift_factor.num_params;
+
+  h.fc_erase_vector = init_fc_sublayer(l, l->input_layers, l->num_input_layers, 1, SK_SIGMOID, p, g, param_offset);
+  param_offset += h.fc_erase_vector.num_params;
+
+  h.fc_add_vector = init_fc_sublayer(l, l->input_layers, l->num_input_layers, 1, SK_SIGMOID, p, g, param_offset);
+  param_offset += h.fc_add_vector.num_params;
+
+  h.key_softmax = init_softmax_sublayer(&h.fc_key);
+
+  h.shift_softmax = init_softmax_sublayer(&h.fc_shift_factor);
+  h.num_params = param_offset - param_idx;
+
+  /*
+   * ...
+   */
+  return h;
+}
+
+void sk_ntm_layer_initialize(Layer *l, Tensor p, Tensor g){
+  NTM_layer_data *d = (NTM_layer_data *)l->data;
+  d->memory = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, 32, 32);
+
+  size_t param_offset = l->param_idx;
+  d->read_head  = create_ntm_head(l, d->memory.dims[d->memory.n - 1], NTM_READ, p, g, param_offset);
+  param_offset += d->read_head.num_params;
+  //d->write_head = create_ntm_head(l, d->memory.dims[d->memory.n - 1], NTM_WRITE, p, g, param_offset);
+
+  l->output   = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
+  l->gradient = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
+  l->loutput  = create_tensor(SIEKNET_CPU, l->size);
+  
+  l->forward = sk_ntm_layer_forward;
+  l->backward = sk_ntm_layer_backward;
+  l->nonlinearity = sk_logistic_to_fn(SK_LINEAR);
+  l->wipe = sk_ntm_layer_wipe;
+  
+  l->data = d;
+}
