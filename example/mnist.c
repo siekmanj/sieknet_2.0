@@ -3,9 +3,16 @@
 #include <string.h>    /* for strcmp   */
 #include <stdint.h>    /* for uint32_t */
 #include <arpa/inet.h> /* for htonl    */
+#include <time.h>
 
 #include <sieknet.h>   /* for the fun stuff */
 #include <optimizer.h>
+
+size_t clock_us(){
+  struct timespec start;
+  clock_gettime(CLOCK_REALTIME, &start);
+  return start.tv_sec * 1e6 + start.tv_nsec / 1e3;
+}
 
 /*
  * Loads mnist image data from a file into a tensor.
@@ -78,6 +85,8 @@ int main(int argc, char **argv){
   char *mnist_test        = NULL;
   char *mnist_test_labels = NULL;
 
+  setbuf(stdout, NULL);
+
   /*
    * Read command line options to get location of mnist data
    */
@@ -133,7 +142,8 @@ int main(int argc, char **argv){
   const size_t dataset_len = data.dims[0];
   const size_t testset_len = test.dims[0];
   const size_t batch_size  = 16;
-  const size_t epochs      = 5;
+  const size_t epochs      = 3;
+  const size_t batches     = dataset_len / batch_size;
 
   Network n = sk_create_network("model/mnist.sk");
   Optimizer o = create_optimizer(n.params, n.param_grad, SK_SGD);
@@ -145,12 +155,17 @@ int main(int argc, char **argv){
   printf(" ___/ // // /___/ /| |/ /|  / /___  / /    \n");
   printf("/____/___/_____/_/ |_/_/ |_/_____/ /_/	   \n");
   printf("																					 \n");
-  printf("MNIST demo\n");
+  printf("MNIST demo - trains a classifier on the MNIST dataset.\n");
 
-  Layer *output_layer = n.output_layer;
+  Layer *output_layer = sk_layer_from_name(&n, "softmax_layer");
+
+  float avg_batch_time = 0;
   for(int epoch = 0; epoch < epochs; epoch++){
+    printf("Commencing epoch %d:\n", epoch);
+
     float epoch_cost = 0.0f;
-    for(int batch = 0; batch < dataset_len / batch_size; batch++){
+    for(int batch = 0; batch < batches; batch++){
+      size_t start = clock_us();
       for(int i = 0; i < batch_size; i++){
         int rand_idx = rand() % dataset_len;
         Tensor x = get_subtensor(data, rand_idx);
@@ -158,12 +173,21 @@ int main(int argc, char **argv){
 
         sk_forward(&n, x);
         if(output_layer)
-          epoch_cost += sk_cost(n.output_layer, y, SK_CROSS_ENTROPY_COST);
+          epoch_cost += sk_cost(output_layer, y, SK_CROSS_ENTROPY_COST);
       }
       sk_backward(&n);
       o.step(o);
+
+      float elapsed = (clock_us()- start)/1e6;
+      avg_batch_time = (avg_batch_time * (epoch * batches + batch) + elapsed)/(epoch * batches + batch + 1);
+      float completion = ((float)epoch * batches + batch) / (epochs * batches);
+      float time_left = (1 - completion) * epochs * batches * avg_batch_time;
+      int min_left = ((int)time_left)/(60);
+      int sec_left = ((int)time_left - min_left*60);
+      
+      printf("Did batch %'6d of %'6lu (%'3dm %'2ds remain)\t\r", batch, batches, min_left, sec_left);
     }
-    printf("Epoch complete: %f / %lu = %f.\n", epoch_cost, (batch_size * (dataset_len / batch_size)), epoch_cost / (batch_size * (dataset_len / batch_size)));
+    printf("Epoch %d complete, cost %f \n", epoch, epoch_cost / dataset_len);
   }
   size_t correct = 0;
   for(int i = 0; i < testset_len; i++){
@@ -171,7 +195,7 @@ int main(int argc, char **argv){
     Tensor y = get_subtensor(test_labels, i);
     n.t = 0;
     sk_forward(&n, x);
-    int guess = tensor_argmax(get_subtensor(n.output_layer->output, 0));
+    int guess = tensor_argmax(get_subtensor(output_layer->output, 0));
     int label = tensor_argmax(y);
     if(guess == label)
       correct++;

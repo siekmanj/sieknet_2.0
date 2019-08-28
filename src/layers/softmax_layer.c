@@ -35,10 +35,7 @@ void sk_softmax_layer_forward(Layer *l, size_t t){
     Layer *in = l->input_layers[i];
 
     /* Get the subtensor for this timestep */
-    //Tensor x = in->rank >= l->rank ? in->loutput : get_subtensor(in->output, t);
-    Tensor x = get_subtensor(in->output, t);
-    printf("tensor in, '%s' %p\n", in->name, x.data);
-    tensor_print(x);
+    Tensor x = in->rank >= l->rank ? in->loutput : get_subtensor(in->output, t);
 
 		Tensor logit_x = get_subtensor_reshape(logits, logit_offset, x.size);
 

@@ -43,14 +43,15 @@ typedef struct ntm_head_{
 typedef struct ntm_data_{
 
   Tensor memory;
-  NTM_head read_head;
-  NTM_head write_head;
+  NTM_head *read_head;
+  NTM_head *write_head;
 
   size_t mem_len;
 
 } NTM_layer_data;
 
 static void sk_ntm_head_forward(NTM_head *h, size_t t){
+  //printf("********DOING HEAD FORWARD MODE %d\n", h->mode);
   sk_fc_layer_forward(&h->fc_key, t);
   sk_fc_layer_forward(&h->fc_key_strength, t);
   sk_fc_layer_forward(&h->fc_interpolation_gate, t);
@@ -59,13 +60,15 @@ static void sk_ntm_head_forward(NTM_head *h, size_t t){
   sk_fc_layer_forward(&h->fc_erase_vector, t);
   sk_fc_layer_forward(&h->fc_add_vector, t);
 
+  //printf("FROM ISNIDE NTM HEAD FWD %p\n", tensor_raw(h->fc_key->output));
+  //tensor_print(h->fc_key->output);
+
   sk_softmax_layer_forward(&h->key_softmax, t);
   sk_softmax_layer_forward(&h->shift_softmax, t);
 
-  printf("shoul have been %p not %p\n", h->fc_key.output.data, h->fc_key.loutput.data);
+  //printf("shoul have been %p\n", tensor_raw(h->key_softmax->output));
   tensor_print(get_subtensor(h->fc_key.output, t));
   tensor_print(get_subtensor(h->key_softmax.output, t));
-  exit(1);
 
   /*
   for(int i = 0; i < l->num_input_layers; i++){
@@ -83,7 +86,8 @@ static void sk_ntm_head_forward(NTM_head *h, size_t t){
 void sk_ntm_layer_forward(Layer *l, size_t t){
   NTM_layer_data *d = (NTM_layer_data *)l->data;
 
-  sk_ntm_head_forward(&d->read_head, t);
+  sk_ntm_head_forward(d->read_head, t);
+  sk_ntm_head_forward(d->write_head, t);
 
   /* Zero the output tensor for this timestep */
   Tensor y = get_subtensor(l->output, t);
@@ -157,39 +161,40 @@ static Layer init_softmax_sublayer(Layer *input){
   *ret.input_layers         = input;
   ret.rank                  = input->rank + 1;
   sk_softmax_layer_initialize(&ret);
-  printf("initialized with %p\n", ret.input_layers[0]->output.data);
   return ret;
 }
 
-static NTM_head create_ntm_head(Layer *l, size_t mem_len, NTM_HEAD_MODE mode, Tensor p, Tensor g, size_t param_idx){
-  NTM_head h;
-  size_t param_offset = 0;
-  h.fc_key          = init_fc_sublayer(l, l->input_layers, l->num_input_layers, mem_len, SK_LINEAR, p, g, param_offset);
-  param_offset += h.fc_key.num_params;
+static NTM_head *create_ntm_head(Layer *l, size_t mem_len, NTM_HEAD_MODE mode, Tensor p, Tensor g, size_t param_idx){
+  NTM_head *h = (NTM_head*)malloc(sizeof(NTM_head));
+  size_t param_offset = param_idx;
+  h->fc_key          = init_fc_sublayer(l, l->input_layers, l->num_input_layers, mem_len, SK_LINEAR, p, g, param_offset);
+  param_offset += h->fc_key.num_params;
 
-  h.fc_key_strength = init_fc_sublayer(l, l->input_layers, l->num_input_layers, 1, SK_SIGMOID, p, g, param_offset);
-  param_offset += h.fc_key_strength.num_params;
+  h->fc_key_strength = init_fc_sublayer(l, l->input_layers, l->num_input_layers, 1, SK_SIGMOID, p, g, param_offset);
+  param_offset += h->fc_key_strength.num_params;
 
-  h.fc_interpolation_gate = init_fc_sublayer(l, l->input_layers, l->num_input_layers, 1, SK_SIGMOID, p, g, param_offset);
-  param_offset += h.fc_interpolation_gate.num_params;
+  h->fc_interpolation_gate = init_fc_sublayer(l, l->input_layers, l->num_input_layers, 1, SK_SIGMOID, p, g, param_offset);
+  param_offset += h->fc_interpolation_gate.num_params;
 
-  h.fc_sharpening_factor = init_fc_sublayer(l, l->input_layers, l->num_input_layers, 1, SK_SIGMOID, p, g, param_offset);
-  param_offset += h.fc_sharpening_factor.num_params;
+  h->fc_sharpening_factor = init_fc_sublayer(l, l->input_layers, l->num_input_layers, 1, SK_SIGMOID, p, g, param_offset);
+  param_offset += h->fc_sharpening_factor.num_params;
 
-  h.fc_shift_factor= init_fc_sublayer(l, l->input_layers, l->num_input_layers, 3, SK_SIGMOID, p, g, param_offset);
-  param_offset += h.fc_shift_factor.num_params;
+  h->fc_shift_factor= init_fc_sublayer(l, l->input_layers, l->num_input_layers, 3, SK_SIGMOID, p, g, param_offset);
+  param_offset += h->fc_shift_factor.num_params;
 
-  h.fc_erase_vector = init_fc_sublayer(l, l->input_layers, l->num_input_layers, 1, SK_SIGMOID, p, g, param_offset);
-  param_offset += h.fc_erase_vector.num_params;
+  h->fc_erase_vector = init_fc_sublayer(l, l->input_layers, l->num_input_layers, 1, SK_SIGMOID, p, g, param_offset);
+  param_offset += h->fc_erase_vector.num_params;
 
-  h.fc_add_vector = init_fc_sublayer(l, l->input_layers, l->num_input_layers, 1, SK_SIGMOID, p, g, param_offset);
-  param_offset += h.fc_add_vector.num_params;
+  h->fc_add_vector = init_fc_sublayer(l, l->input_layers, l->num_input_layers, 1, SK_SIGMOID, p, g, param_offset);
+  param_offset += h->fc_add_vector.num_params;
 
-  h.key_softmax = init_softmax_sublayer(&h.fc_key);
+  h->num_params = param_offset - param_idx;
 
-  h.shift_softmax = init_softmax_sublayer(&h.fc_shift_factor);
-  h.num_params = param_offset - param_idx;
+  h->key_softmax = init_softmax_sublayer(&h->fc_key);
 
+  h->shift_softmax = init_softmax_sublayer(&h->fc_shift_factor);
+
+  h->mode = mode;
   /*
    * ...
    */
@@ -202,8 +207,8 @@ void sk_ntm_layer_initialize(Layer *l, Tensor p, Tensor g){
 
   size_t param_offset = l->param_idx;
   d->read_head  = create_ntm_head(l, d->memory.dims[d->memory.n - 1], NTM_READ, p, g, param_offset);
-  param_offset += d->read_head.num_params;
-  //d->write_head = create_ntm_head(l, d->memory.dims[d->memory.n - 1], NTM_WRITE, p, g, param_offset);
+  param_offset += d->read_head->num_params;
+  d->write_head = create_ntm_head(l, d->memory.dims[d->memory.n - 1], NTM_WRITE, p, g, param_offset);
 
   l->output   = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
   l->gradient = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
