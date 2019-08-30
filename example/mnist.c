@@ -179,9 +179,10 @@ int main(int argc, char **argv){
       o.step(o);
 
       float elapsed = (clock_us()- start)/1e6;
-      avg_batch_time = (avg_batch_time * (epoch * batches + batch) + elapsed)/(epoch * batches + batch + 1);
-      float completion = ((float)epoch * batches + batch) / (epochs * batches);
-      float time_left = (1 - completion) * epochs * batches * avg_batch_time;
+      size_t batches_completed = epoch * batches + batch;
+      avg_batch_time = (avg_batch_time * batches_completed + elapsed)/(batches_completed + 1);
+      float completion = ((float) batches_completed) / (epochs * batches);
+      float time_left = (1-completion) * epochs * batches * avg_batch_time;
       int min_left = ((int)time_left)/(60);
       int sec_left = ((int)time_left - min_left*60);
       

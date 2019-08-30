@@ -7,6 +7,9 @@ LIB = -lm
 default:
 	$(CC) -Wall main.c $(SRC) $(INC) $(LIB)
 
+model_based:
+	$(CC) -Wall example/model_based.c $(SRC) $(INC) $(LIB) -o bin/model_based
+
 gradient_check:
 	$(CC) -Wall example/gradient_check.c $(SRC) $(INC) $(LIB) -o bin/gradient_check
 

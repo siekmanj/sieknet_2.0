@@ -1,0 +1,25 @@
+[network]
+name: recurrent_model
+input_dimension: 46
+input: input_embedding
+output: action
+
+[fully_connected layer]
+name: input_embedding
+size: 64
+logistic: tanh
+
+[lstm layer]
+input: input_embedding
+name: prediction
+size: 46
+
+[lstm layer]
+input: input_embedding, prediction
+name: action
+size: 10
+
+[lstm layer]
+input: input_embedding, prediction
+name: reward_prediction
+size: 1
