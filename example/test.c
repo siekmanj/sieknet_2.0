@@ -10,7 +10,16 @@ int main(){
   srand(1271998);
   setlocale(LC_NUMERIC, "");
 
-#if 1
+  printf("   _____ ____________ __ _   ______________\n");
+  printf("  / ___//  _/ ____/ //_// | / / ____/_	__/\n");
+  printf("  \\__ \\ / // __/ / ,<  /  |/ / __/   / /   \n");
+  printf(" ___/ // // /___/ /| |/ /|  / /___  / /    \n");
+  printf("/____/___/_____/_/ |_/_/ |_/_____/ /_/	   \n");
+  printf("																					 \n");
+  printf("Unit tests for tensor math library.\n");
+
+
+#if 0
   float a_mem[] = {-1.0, -1.0, 1.0};
 	float c_mem[] = {0.0, -9.3890561, 0.0};
   Tensor a = create_tensor(SIEKNET_CPU, 3);

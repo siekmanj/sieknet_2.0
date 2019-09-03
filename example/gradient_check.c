@@ -31,7 +31,7 @@ int main(int argc, char **argv){
 
   printf("Loaded model: '%s'\n", n.name);
   for(int i = 0; i < n.depth; i++){
-    printf("\tExecution rank %d: '%s'\n", n.layers[i]->rank, n.layers[i]->name);
+    printf("\tExecution rank %d: '%s', parameter offset: %lu, # params: %lu\n", n.layers[i]->rank, n.layers[i]->name, n.layers[i]->param_idx, n.layers[i]->num_params);
   }
 	Tensor x = create_tensor(SIEKNET_CPU, t, n.input_dimension);
 	Tensor y = create_tensor(SIEKNET_CPU, t, n.layers[n.depth-1]->output.dims[1]);
@@ -52,7 +52,16 @@ int main(int argc, char **argv){
 
   size_t start = clock_us();
 	for(size_t i = 0; i < n.num_params; i++){
-    printf("Checked %'9lu of %'9lu parameters in %3.2fs\t\r", i, n.num_params, 1e-6*(clock_us() - start));
+    Layer *culprit;
+    for(int j = 0; j < n.depth; j++){
+      Layer *l = n.layers[j];
+      if(l->param_idx <= i && l->param_idx + l->num_params > i){
+        culprit = l;
+        break;
+      }
+    }
+
+    printf("Checked %'9lu of %'9lu parameters in %3.2fs\t\r", i, n.num_params + 1, 1e-6*(clock_us() - start));
 		double predicted_grad = p_grad[i];
 
 		params[i] += epsilon;
@@ -71,21 +80,13 @@ int main(int argc, char **argv){
 		double empirical_grad = (c1 - c2) / (2 * epsilon);
 		double diff = (predicted_grad - empirical_grad);
 		double relative = (fabs(diff) / MAX(fabs(predicted_grad), fabs(empirical_grad)));
-    //printf("%f vs %f\n", predicted_grad, empirical_grad);
+
     if(isnan(relative)){
-      printf("\n(warning: zero parameter)\n");
+      printf("\n(warning: zero grad), culprit '%s', param %lu (offset %lu)\n", culprit->name, i, i - culprit->param_idx);
       continue;
     }
 
 		if(relative/t > 1e-3){
-			Layer *culprit;
-			for(int j = 0; j < n.depth; j++){
-				Layer *l = n.layers[j];
-				if(l->param_idx <= i && l->param_idx + l->num_params > i){
-					culprit = l;
-					break;
-				}
-			}
 			printf("param %'9lu: abs. err: %9.8f, relative err: %4.3f, est. grad %10.8f, measured grad %10.8f, culprit '%s'\n", i, fabs(diff)/t, relative/t, predicted_grad, empirical_grad, culprit->name);
 		}
 		norm += relative;

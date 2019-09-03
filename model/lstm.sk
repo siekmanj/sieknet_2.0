@@ -5,7 +5,7 @@ input: layer_a
 output: layer_d
 
 [fully_connected layer]
-name: fc_layer1
+name: layer_a
 logistic: sigmoid
 size: 25
 

@@ -227,9 +227,10 @@ size_t sk_lstm_layer_count_params(Layer *l){
 
   for(int i = 0; i < l->num_input_layers; i++){
     Layer *in = l->input_layers[i];
-    l->num_params += 4 * (l->size * in->size + l->size);
+    //l->num_params += 4 * (l->size * in->size + l->size);
+    l->num_params += 4 * l->size * in->size;
   }
-  //l->num_params += 4 * (l->size);
+  l->num_params += 4 * l->size;
   return l->num_params;
 }
 

@@ -1,11 +1,11 @@
 CC=gcc
 
 SRC = src/*.c src/*/*.c
-INC = -I include -I include/layers -I include/math -I include/parser
+INC = -I src -I src/layers -I src/math -I src/parser
 LIB = -lm 
 
-default:
-	$(CC) -Wall main.c $(SRC) $(INC) $(LIB)
+test:
+	$(CC) -Wall example/test.c $(SRC) $(INC) $(LIB) -o bin/test
 
 model_based:
 	$(CC) -Wall example/model_based.c $(SRC) $(INC) $(LIB) -o bin/model_based
