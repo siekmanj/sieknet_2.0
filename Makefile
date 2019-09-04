@@ -1,8 +1,10 @@
 CC=gcc
 
 SRC = src/*.c src/*/*.c
-INC = -I src -I src/layers -I src/math -I src/parser
+INC = -I src -I src/layers -I src/math -I src/parser -I src/env -I src/algo
 LIB = -lm 
+
+$(shell mkdir -p bin)
 
 test:
 	$(CC) -Wall example/test.c $(SRC) $(INC) $(LIB) -o bin/test
@@ -15,3 +17,6 @@ gradient_check:
 
 mnist:
 	$(CC) -Wall example/mnist.c $(SRC) $(INC) $(LIB) -o bin/mnist
+
+mj_demo:
+	$(CC) -Wall example/mj_demo.c $(SRC) $(INC) $(LIB) -Lcgym -Icgym/include -lcgym
