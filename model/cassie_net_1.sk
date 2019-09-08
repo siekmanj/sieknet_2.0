@@ -1,6 +1,6 @@
 [network]
 name: recurrent_model
-input_dimension: 46
+input_dimension: 40
 input: input_embedding
 output: action
 
@@ -12,7 +12,7 @@ logistic: tanh
 [lstm layer]
 input: input_embedding
 name: prediction
-size: 46
+size: 40
 
 [lstm layer]
 input: input_embedding, prediction
