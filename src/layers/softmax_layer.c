@@ -3,7 +3,6 @@
 
 #include <conf.h>
 #include <tensor.h>
-#include <layer.h>
 #include <parser.h>
 
 typedef struct Softmax_layer_data_{
@@ -84,6 +83,33 @@ void sk_softmax_layer_backward(Layer *l, size_t t){
   }
 }
 
+void sk_softmax_layer_dealloc(Layer *l){
+  tensor_dealloc(l->output);
+  tensor_dealloc(l->gradient);
+  tensor_dealloc(l->loutput);
+
+  SM_layer_data *d = (SM_layer_data*)l->data;
+  for(int i = 0; i < l->num_input_layers; i++){
+    if(l->input_names){
+      free(l->input_names[i]);
+    }
+  }
+  if(l->input_layers)
+    free(l->input_layers);
+
+  if(l->output_layers)
+    free(l->output_layers);
+
+  if(l->input_names)
+    free(l->input_names);
+
+  tensor_dealloc(d->softmax_jacobian);
+  tensor_dealloc(d->input_gradient);
+
+  free(d);
+  free(l->name);
+}
+
 void sk_softmax_layer_wipe(Layer *l){};
 
 /*
@@ -130,6 +156,7 @@ void sk_softmax_layer_initialize(Layer *l){
   l->forward      = sk_softmax_layer_forward;
   l->backward     = sk_softmax_layer_backward;
   l->wipe         = sk_softmax_layer_wipe;
+  l->dealloc      = sk_softmax_layer_dealloc;
 
 	SM_layer_data *d = calloc(sizeof(SM_layer_data), 1);
 	d->softmax_jacobian = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size, l->size);

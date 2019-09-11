@@ -1,7 +1,6 @@
 #ifndef SIEKNET_SOFTMAX_LAYER_H
 #define SIEKNET_SOFTMAX_LAYER_H
 
-#include <layer.h>
 #include <tensor.h>
 
 static const char sk_softmax_layer_identifier[] = "[softmax layer]";

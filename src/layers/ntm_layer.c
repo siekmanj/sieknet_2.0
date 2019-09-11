@@ -3,7 +3,6 @@
 
 #include <conf.h>
 #include <tensor.h>
-#include <layer.h>
 #include <parser.h>
 
 #include <fc_layer.h>

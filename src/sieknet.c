@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <layer.h>
 #include <tensor.h>
 #include <sieknet.h>
 #include <parser.h>
@@ -37,7 +36,6 @@ static void initialize_network(Network *n){
     Layer *l = n->layers[i];
     l->param_idx = param_idx;
     param_idx += sk_layer_count_params(l);
-    //param_idx += l->num_params;
   }
   n->params     = create_tensor(SIEKNET_CPU, param_idx);
   n->param_grad = create_tensor(SIEKNET_CPU, param_idx);
@@ -70,6 +68,7 @@ Network sk_create_network(const char *skfile){
    * logistic functions, layer types, and network name.
    */
   parse_network(&n, src);
+  free(src);
 
   /*
    * Construct directed graph, assign input & output layers,
@@ -87,10 +86,25 @@ Network sk_create_network(const char *skfile){
 
 void sk_wipe(Network *n){
   for(int i = 0; i < n->depth; i++){
-    //TODO: make this a member function
     n->layers[i]->wipe(n->layers[i]);
     tensor_fill(n->layers[i]->loutput, 0.0f);
   }
+}
+
+void sk_dealloc(Network *n){
+  for(int i = 0; i < n->depth; i++){
+    n->layers[i]->dealloc(n->layers[i]);
+    free(n->layers[i]);
+  }
+
+  tensor_dealloc(n->data_layer->output);
+  tensor_dealloc(n->params);
+  tensor_dealloc(n->param_grad);
+
+  free(n->layers);
+  free(n->data_layer);
+  free(n->name);
+  free(n->input_layername);
 }
 
 static void sk_run_inference(Network *n, Tensor x){

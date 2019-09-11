@@ -3,7 +3,6 @@
 
 #include <conf.h>
 #include <tensor.h>
-#include <layer.h>
 #include <parser.h>
 
 typedef struct lstm_data_{
@@ -187,6 +186,46 @@ void sk_lstm_layer_backward(Layer *l, size_t t){
   tensor_elementwise_add(d->bias_grad, get_subtensor(d->gate_grads, t), d->bias_grad);
 }
 
+void sk_lstm_layer_dealloc(Layer *l){
+  tensor_dealloc(l->output);
+  tensor_dealloc(l->gradient);
+  tensor_dealloc(l->loutput);
+
+  LSTM_layer_data *d = (LSTM_layer_data*)l->data;
+  for(int i = 0; i < l->num_input_layers; i++){
+    if(l->input_names){
+      free(l->input_names[i]);
+    }
+    tensor_dealloc(d->weights[i]);
+    tensor_dealloc(d->weight_grad[i]);
+
+  }
+  free(d->weights);
+  free(d->weight_grad);
+
+  if(l->input_layers)
+    free(l->input_layers);
+
+  if(l->output_layers)
+    free(l->output_layers);
+
+  if(l->input_names)
+    free(l->input_names);
+
+  tensor_dealloc(d->bias);
+  tensor_dealloc(d->bias_grad);
+  tensor_dealloc(d->cell_state);
+  tensor_dealloc(d->cell_state_tanh);
+  tensor_dealloc(d->last_cell_state);
+  tensor_dealloc(d->cell_grad);
+  tensor_dealloc(d->gates);
+  tensor_dealloc(d->gate_grads);
+  tensor_dealloc(d->cell_future_grad);
+
+  free(d);
+  free(l->name);
+}
+
 void sk_lstm_layer_wipe(Layer *l){
   LSTM_layer_data *d = (LSTM_layer_data*)l->data;
   tensor_fill(d->last_cell_state, 0.0f);
@@ -239,10 +278,11 @@ void sk_lstm_layer_initialize(Layer *l, Tensor p, Tensor g){
   l->gradient = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
   l->loutput  = create_tensor(SIEKNET_CPU, l->size);
 
-  l->forward = sk_lstm_layer_forward;
-  l->backward = sk_lstm_layer_backward;
+  l->forward      = sk_lstm_layer_forward;
+  l->backward     = sk_lstm_layer_backward;
   l->nonlinearity = sk_logistic_to_fn(l->logistic);
-  l->wipe = sk_lstm_layer_wipe;
+  l->wipe         = sk_lstm_layer_wipe;
+  l->dealloc      = sk_lstm_layer_dealloc;
 
   LSTM_layer_data *d   = malloc(sizeof(LSTM_layer_data));
   d->weights           = calloc(l->num_input_layers, sizeof(Tensor));

@@ -43,6 +43,7 @@ typedef struct layer_{
   void (*backward)(struct layer_*, size_t);
   void (*nonlinearity)(Tensor, Tensor);
   void (*wipe)(struct layer_*);
+  void (*dealloc)(struct layer_*);
 
 } Layer;
 
@@ -57,8 +58,6 @@ typedef struct net_{
   Layer **layers;
   Layer *output_layer;
 
-  Tensor output;
-  
   Tensor params;
   Tensor param_grad;
 
@@ -74,10 +73,10 @@ typedef struct net_{
 } Network;
 
 typedef void (*SK_LOGISTIC_FN)(Tensor);
-void (*sk_logistic_to_fn(SK_LOGISTIC))(Tensor, Tensor);
+void         (*sk_logistic_to_fn(SK_LOGISTIC))(Tensor, Tensor);
 
 SK_LAYER_TYPE sk_layer_parse_identifier(const char *);
-SK_LOGISTIC sk_layer_parse_logistic(const char *);
+SK_LOGISTIC   sk_layer_parse_logistic(const char *);
 
 void parse_network(Network *, char *);
 void build_network(Network *);
@@ -86,15 +85,15 @@ Network sk_load_network(const char *, const char *);
 Network sk_create_network(const char *);
 void    sk_save_network(const char *);
 
-void  sk_forward(Network *, Tensor);
+void   sk_forward(Network *, Tensor);
 double sk_cost(Layer *, Tensor, SK_COST_FN);
-void  sk_backward(Network *);
+void   sk_backward(Network *);
+void   sk_wipe(Network *);
+void   sk_dealloc(Network *);
 
-void sk_wipe(Network *n);
-
-void sk_layer_parse(Layer *, char *);
+void   sk_layer_parse(Layer *, char *);
 size_t sk_layer_count_params(Layer *);
-void sk_layer_initialize(Layer *, Tensor, Tensor);
+void   sk_layer_initialize(Layer *, Tensor, Tensor);
 
 int contains_layer(Layer **, Layer *, size_t);
 Layer *sk_layer_from_name(Network *, const char *);

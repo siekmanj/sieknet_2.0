@@ -1,7 +1,6 @@
 #include <string.h>
 
 #include <conf.h>
-#include <layer.h>
 #include <tensor.h>
 #include <parser.h>
 
@@ -9,6 +8,26 @@
 #include <lstm_layer.h>
 #include <softmax_layer.h>
 #include <ntm_layer.h>
+
+void (*sk_logistic_to_fn(SK_LOGISTIC l))(Tensor, Tensor){
+  switch(l){
+    case SK_SIGMOID:
+      return tensor_sigmoid_precompute;
+      break;
+    case SK_TANH:
+      return tensor_tanh_precompute;
+      break;
+    case SK_RELU:
+      return tensor_relu_precompute;
+      break;
+    case SK_LINEAR:
+      return tensor_linear_precompute;
+      break;
+    default:
+      SK_ERROR("Logistic function not implemented.");
+      break;
+  }
+}
 
 int sk_contains_layer(Layer **arr, Layer *comp, size_t arrlen){
   for(int i = 0; i < arrlen; i++){
@@ -63,7 +82,7 @@ void sk_layer_parse(Layer *l, char *src){
       sk_ntm_layer_parse(l, src);
       break;
     default:{
-      SK_ERROR("Parse not implemented for this layer type: %d.", l->layertype);
+      SK_ERROR("Parse not implemented for this layer type: %d ('%s')", l->layertype, first_line);
     }
   }
 }
@@ -121,25 +140,5 @@ void sk_layer_initialize(Layer *l, Tensor p, Tensor g){
       SK_ERROR("Not implemented.");
       break;
     }
-  }
-}
-
-void (*sk_logistic_to_fn(SK_LOGISTIC l))(Tensor, Tensor){
-  switch(l){
-    case SK_SIGMOID:
-      return tensor_sigmoid_precompute;
-      break;
-    case SK_TANH:
-      return tensor_tanh_precompute;
-      break;
-    case SK_RELU:
-      return tensor_relu_precompute;
-      break;
-    case SK_LINEAR:
-      return tensor_linear_precompute;
-      break;
-    default:
-      SK_ERROR("Logistic function not implemented.");
-      break;
   }
 }

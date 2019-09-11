@@ -3,7 +3,6 @@
 
 #include <conf.h>
 #include <tensor.h>
-#include <layer.h>
 #include <parser.h>
 
 
@@ -82,11 +81,7 @@ void sk_fc_layer_backward(Layer *l, size_t t){
     }else continue;
 
     /* Compute weight gradients */
-    //printf("DOING WEIGHT GRADS\n");
-    //tensor_print(x);
-    //tensor_print(g);
     tensor_mmult(x, g, dw); // dW = x * g
-    //tensor_print(dw);
 
     /* Compute input gradients if needed */
     if(dx.data)
@@ -97,6 +92,41 @@ void sk_fc_layer_backward(Layer *l, size_t t){
   Tensor db = d->bias_grad;
   tensor_elementwise_add(g, db, db);
 }
+
+void sk_fc_layer_dealloc(Layer *l){
+  tensor_dealloc(l->output);
+  tensor_dealloc(l->gradient);
+  tensor_dealloc(l->loutput);
+
+  FC_layer_data *d = (FC_layer_data*)l->data;
+  for(int i = 0; i < l->num_input_layers; i++){
+    if(l->input_names){
+      free(l->input_names[i]);
+    }
+    tensor_dealloc(d->weights[i]);
+    tensor_dealloc(d->weight_grad[i]);
+
+  }
+  free(d->weights);
+  free(d->weight_grad);
+
+  if(l->input_layers)
+    free(l->input_layers);
+
+  if(l->output_layers)
+    free(l->output_layers);
+
+  if(l->input_names)
+    free(l->input_names);
+
+  tensor_dealloc(d->intermediate_grad);
+  tensor_dealloc(d->bias);
+  tensor_dealloc(d->bias_grad);
+
+  free(d);
+  free(l->name);
+}
+
 
 void sk_fc_layer_wipe(Layer *l){};
 
@@ -162,6 +192,7 @@ void sk_fc_layer_initialize(Layer *l, Tensor p, Tensor g){
   l->backward     = sk_fc_layer_backward;
   l->nonlinearity = sk_logistic_to_fn(l->logistic);
   l->wipe         = sk_fc_layer_wipe;
+  l->dealloc      = sk_fc_layer_dealloc;
 
   FC_layer_data *d     = calloc(1, sizeof(FC_layer_data));
   d->weights           = calloc(l->num_input_layers, sizeof(Tensor));
@@ -202,4 +233,3 @@ void sk_fc_layer_initialize(Layer *l, Tensor p, Tensor g){
   l->gradient.dims[0] = 1;
   l->data = d;
 }
-

@@ -1,18 +1,24 @@
-[layer]
-name: layer_a
-type: feedforward
-logistic: sigmoid
-size: 25
+[network]
+name: fc_test
+input_dimension: 4
+input: layer_a
 
-[layer]
+[fully_connected layer]
+name: layer_a
+logistic: sigmoid
+size: 6
+
+[lstm layer]
 name: layer_b
 input: layer_a
-type: feedforward
-logistic: sigmoid
-size: 50
+size: 3
 
-[network]
-name: test_1
-input_dimension: 10
-input: layer_a
-output: layer_b
+[fully_connected layer]
+name: layer_c
+input: layer_a, layer_b, layer_c
+logistic: linear
+size: 3
+
+[softmax layer]
+name: softmax_layer
+input: layer_c

@@ -6,6 +6,11 @@
 #include <sieknet.h>   /* for the fun stuff */
 #include <optimizer.h>
 #include <cgym.h>
+#include <ars.h>
+
+#ifndef NUM_THREADS
+#define NUM_THREADS 10
+#endif
 
 size_t clock_us(){
   struct timespec start;
@@ -49,10 +54,18 @@ float rollout(Network *n, Environment *e){
   return 0.0f;
 }
 
+Network networks[NUM_THREADS];
+Environment envs[NUM_THREADS];
+
+float R(Tensor input, size_t thread_num){
+  tensor_copy(input, networks[thread_num].params);
+  return rollout(&networks[thread_num], &envs[thread_num]);
+}
+
 int main(int argc, char **argv){
-  char *model_path        = NULL;
-  char *weight_path       = NULL;
-  char *environment_name  = NULL;
+  char *model_path       = NULL;
+  char *weight_path      = NULL;
+  char *environment_name = NULL;
 
   setbuf(stdout, NULL);
 
@@ -62,10 +75,10 @@ int main(int argc, char **argv){
   int args_read = 0;
   while(1){
     static struct option long_options[] = {
-      {"model",           required_argument, 0,  0 },
-      {"weights",         required_argument, 0,  0 },
-      {"env",             required_argument, 0,  0 },
-      {0,                 0,                 0,  0 },
+      {"model",           required_argument, 0,  0},
+      {"weights",         required_argument, 0,  0},
+      {"env",             required_argument, 0,  0},
+      {0,                 0,                 0,  0},
     };
 
     int opt_idx;
@@ -92,23 +105,26 @@ int main(int argc, char **argv){
       exit(1);
   }
 
-  Network n;
   if(weight_path)
-    asm("nop"); //TODO: load weights
+    SK_ERROR("Need to implement this!");
   else
-    n = sk_create_network(model_path);
-
-  Environment e;
+    for(int i = 0; i < NUM_THREADS; i++)
+      networks[i] = sk_create_network(model_path);
 
 #ifdef COMPILED_FOR_MUJOCO
   if(!strcmp(environment_name, "humanoid"))
-    e = create_humanoid_env();
+    for(int i = 0; i < NUM_THREADS; i++)
+      envs[i] = create_humanoid_env();
 #else
   if(!strcmp(environment_name, "cassie"))
-    e = create_cassie_env();
+    for(int i = 0; i < NUM_THREADS; i++)
+      envs[i] = create_cassie_env();
 #endif
 
-  rollout(&n, &e);
+  ARS algo = create_ars(R, networks[0].params, 10, 1);
+  //for(int i = 0; i < NUM_THREADS; i++){
+  //  rollout(&networks[i], &envs[i]);
+  //}
 
   /*
    * TODO: Environment stuff
@@ -117,3 +133,4 @@ int main(int argc, char **argv){
    */
 
 }
+

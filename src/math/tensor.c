@@ -777,7 +777,7 @@ Tensor tensor_from_arr(TENSOR_DEVICE device, size_t *dimensions, size_t num_dime
  */
 void tensor_dealloc(Tensor t){
   switch(t.type){
-    case TENSOR:{
+    case TENSOR:
       free(t.dims);
       free(t.strides);
       if(t.device == SIEKNET_CPU)
@@ -785,15 +785,14 @@ void tensor_dealloc(Tensor t){
       else
         SK_ERROR("tensor_dealloc not implemented for gpu.");
       break;
-    }
-    case SUBTENSOR:{
+    case SUBTENSOR:
       break;
-    }
-    case RESHAPE:{
+    case RESHAPE:
       free(t.dims);
       free(t.strides);
       break;
-    }
+    default:
+      break;
   }
 }
 

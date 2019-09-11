@@ -3,7 +3,6 @@
 #include <math.h>
 #include <string.h>
 
-#include <layer.h>
 #include <parser.h>
 #include <sieknet.h>
 
@@ -109,17 +108,12 @@ void build_network(Network *n){
   }
 
   n->input_layer  = sk_layer_from_name(n, n->input_layername);
-  n->output_layer = sk_layer_from_name(n, n->output_layername);
 
   if(!n->input_layer)
     SK_ERROR("could not find a layer with name '%s' while searching for network input layer.", n->input_layername);
 
-  if(!n->output_layer)
-    SK_ERROR("could not find a layer with name '%s' while searching for network output layer.", n->output_layername);
-
   assign_execution_order(n->layers, n->depth, n->input_layer, 0);
   qsort((void*)n->layers, n->depth, sizeof(Layer*), layer_comparator);
-
 
   for(int i = 0; i < n->depth; i++){
     Layer *l = n->layers[i];

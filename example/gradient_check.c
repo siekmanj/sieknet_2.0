@@ -61,7 +61,7 @@ int main(int argc, char **argv){
       }
     }
 
-    printf("Checked %'9lu of %'9lu parameters in %3.2fs\t\r", i, n.num_params + 1, 1e-6*(clock_us() - start));
+    printf("Checked %'9lu of %'9lu parameters in %3.2fs\t\r", i+1, n.num_params, 1e-6*(clock_us() - start));
 		double predicted_grad = p_grad[i];
 
 		params[i] += epsilon;
@@ -102,5 +102,9 @@ int main(int argc, char **argv){
 	else
 		printf("FAILED (norm %12.11f)\n", norm);
 
+   
+  sk_dealloc(&n);
+  tensor_dealloc(x);
+  tensor_dealloc(y);
   return 0;
 }

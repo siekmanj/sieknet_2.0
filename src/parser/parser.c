@@ -3,7 +3,6 @@
 
 #include <parser.h>
 #include <sieknet.h>
-#include <layer.h>
 
 #define BUFFSIZE 2048
 
@@ -119,6 +118,7 @@ int sk_parser_find_string(const char *identifier, char *src, char **dest){
 }
 
 int sk_parser_find_strings(const char *identifier, char *src, char ***dest, size_t *num){
+  *dest = NULL;
   char line[BUFFSIZE];
   while(sk_parser_get_line(&src, line, NULL)){
     sk_parser_strip_string(line);
@@ -179,7 +179,6 @@ void parse_network(Network *n, char *src){
     do {
       start = tmp;
       done = !sk_parser_get_line(&tmp, line, NULL);
-      //printf("FOUND LINE '%s'\n", line);
     }
     while(sk_layer_parse_identifier(line) == -1 && !done);
 
@@ -222,8 +221,8 @@ void parse_network(Network *n, char *src){
   if(!sk_parser_find_string("input", network_src, &n->input_layername))
     SK_ERROR("No matching attribute 'input' found in [network] section.");
   
-  if(!sk_parser_find_string("output", network_src, &n->output_layername))
-    SK_ERROR("No matching attribute 'output' found in [network] section.");
+  //if(!sk_parser_find_string("output", network_src, &n->output_layername))
+  //  SK_ERROR("No matching attribute 'output' found in [network] section.");
 
   if(!sk_parser_find_string("name", network_src, &n->name))
     SK_ERROR("No matching attribute 'name' found in [network] section.");
@@ -233,7 +232,6 @@ void parse_network(Network *n, char *src){
     SK_ERROR("No matching attribute 'input_dimension' found in [network] section.");
   n->input_dimension = indim;
 
-  free(src);
 }
 
 
