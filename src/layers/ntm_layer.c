@@ -118,7 +118,7 @@ void sk_ntm_layer_parse(Layer *l, char *src){
   l->size = 16;
 }
 
-size_t sk_ntm_layer_count_params(Layer *l){
+void sk_ntm_layer_count_params(Layer *l){
   NTM_layer_data *d = (NTM_layer_data *)l->data;
 
   /*
@@ -133,7 +133,7 @@ size_t sk_ntm_layer_count_params(Layer *l){
     l->num_params += l->input_layers[i]->size * head_output_dim;
     l->num_params += l->input_layers[i]->size * head_output_dim;
   }
-  return l->num_params;
+  l->num_consts = 0;
 }
 
 static Layer init_fc_sublayer(Layer *parent, Layer **inputs, size_t num_inputs, size_t size, SK_LOGISTIC logistic, Tensor p, Tensor g, size_t param_offset){
@@ -146,7 +146,8 @@ static Layer init_fc_sublayer(Layer *parent, Layer **inputs, size_t num_inputs, 
   ret.logistic              = logistic;
   ret.weight_initialization = SK_XAVIER;
   ret.param_idx             = param_offset;
-  ret.num_params            = sk_fc_layer_count_params(&ret);
+  //ret.num_params            = sk_fc_layer_count_params(&ret);
+  
   sk_fc_layer_initialize(&ret, p, g);
   return ret;
 }

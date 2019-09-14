@@ -87,19 +87,18 @@ void sk_layer_parse(Layer *l, char *src){
   }
 }
 
-size_t sk_layer_count_params(Layer *l){
+void sk_layer_count_params(Layer *l){
   switch(l->layertype){
     case SK_FF:
-      return sk_fc_layer_count_params(l);
+      sk_fc_layer_count_params(l);
       break;
     case SK_LSTM:
-      return sk_lstm_layer_count_params(l);
+      sk_lstm_layer_count_params(l);
       break;
     case SK_SOFTMAX:
-      return 0;
       break;
     case SK_NTM:
-      return sk_ntm_layer_count_params(l);
+      sk_ntm_layer_count_params(l);
       break;
     case SK_GRU:
       SK_ERROR("GRU not implemented.");
@@ -111,7 +110,6 @@ size_t sk_layer_count_params(Layer *l){
       SK_ERROR("Not implemented.");
       break;
   }
-  return 0;
 }
 
 void sk_layer_initialize(Layer *l, Tensor p, Tensor g){

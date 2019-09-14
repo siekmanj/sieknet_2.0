@@ -54,6 +54,7 @@ float tensor_reduce_dot(const Tensor, const Tensor);
 void tensor_mmult(const Tensor, const Tensor, Tensor);
 
 void tensor_elementwise_add(const Tensor, const Tensor, Tensor);
+void tensor_elementwise_sub(const Tensor, const Tensor, Tensor);
 void tensor_elementwise_mul(const Tensor, const Tensor, Tensor);
 
 void tensor_scalar_mul(Tensor, float);

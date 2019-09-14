@@ -134,8 +134,9 @@ void sk_softmax_layer_parse(Layer *l, char *src){
 /*
  * Allocates the memory for a fully-connected layer.
  */
-size_t sk_softmax_layer_count_params(Layer *l){
-	return 0;
+void sk_softmax_layer_count_params(Layer *l){
+  l->num_params = 0;
+  l->num_consts = 0;
 }
 
 /*

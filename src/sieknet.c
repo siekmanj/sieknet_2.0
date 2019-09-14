@@ -32,13 +32,21 @@ static void initialize_network(Network *n){
   
   /* Allocate tensor memory and count the number of parameters in the network */
   size_t param_idx = 0;
+  size_t const_idx = 0;
   for(int i = 0; i < n->depth; i++){
     Layer *l = n->layers[i];
     l->param_idx = param_idx;
-    param_idx += sk_layer_count_params(l);
+    l->const_idx = const_idx;
+
+    sk_layer_count_params(l);
+
+    param_idx += l->num_params;
+    const_idx += l->num_consts;
   }
   n->params     = create_tensor(SIEKNET_CPU, param_idx);
   n->param_grad = create_tensor(SIEKNET_CPU, param_idx);
+
+  n->constants = create_tensor(SIEKNET_CPU, const_idx);
 
   /* Initialize layer weights and variables */
   for(int i = 0; i < n->depth; i++)

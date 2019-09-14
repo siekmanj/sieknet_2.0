@@ -13,7 +13,7 @@ void sk_ntm_layer_wipe(Layer *);
 
 void sk_ntm_layer_parse(Layer *, char *);
 
-size_t sk_ntm_layer_count_params(Layer *);
+void sk_ntm_layer_count_params(Layer *);
 
 void sk_ntm_layer_initialize(Layer *, Tensor, Tensor);
 

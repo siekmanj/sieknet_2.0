@@ -261,7 +261,7 @@ void sk_lstm_layer_parse(Layer *l, char *src){
   l->name = name;
 }
 
-size_t sk_lstm_layer_count_params(Layer *l){
+void sk_lstm_layer_count_params(Layer *l){
   l->num_params = 0;
 
   for(int i = 0; i < l->num_input_layers; i++){
@@ -270,7 +270,8 @@ size_t sk_lstm_layer_count_params(Layer *l){
     l->num_params += 4 * l->size * in->size;
   }
   l->num_params += 4 * l->size;
-  return l->num_params;
+  l->num_consts = 0;
+  //return l->num_params;
 }
 
 void sk_lstm_layer_initialize(Layer *l, Tensor p, Tensor g){

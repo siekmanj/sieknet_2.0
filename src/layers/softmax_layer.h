@@ -7,7 +7,7 @@ static const char sk_softmax_layer_identifier[] = "[softmax layer]";
 
 void sk_softmax_layer_parse(Layer *, const char *);
 
-size_t sk_softmax_layer_count_params(Layer *);
+void sk_softmax_layer_count_params(Layer *);
 
 void sk_softmax_layer_initialize(Layer *);
 

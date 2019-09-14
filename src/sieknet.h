@@ -26,6 +26,9 @@ typedef struct layer_{
   size_t param_idx;
   size_t num_params;
 
+  size_t const_idx;
+  size_t num_consts;
+
   int rank;
   int visited;
 
@@ -61,6 +64,8 @@ typedef struct net_{
   Tensor params;
   Tensor param_grad;
 
+  Tensor constants;
+
   size_t trainable;
   size_t input_dimension;
   size_t num_params;
@@ -91,9 +96,9 @@ void   sk_backward(Network *);
 void   sk_wipe(Network *);
 void   sk_dealloc(Network *);
 
-void   sk_layer_parse(Layer *, char *);
-size_t sk_layer_count_params(Layer *);
-void   sk_layer_initialize(Layer *, Tensor, Tensor);
+void sk_layer_parse(Layer *, char *);
+void sk_layer_count_params(Layer *);
+void sk_layer_initialize(Layer *, Tensor, Tensor);
 
 int contains_layer(Layer **, Layer *, size_t);
 Layer *sk_layer_from_name(Network *, const char *);

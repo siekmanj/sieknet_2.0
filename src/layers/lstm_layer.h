@@ -7,7 +7,7 @@ static const char sk_lstm_layer_identifier[] = "[lstm layer]";
 
 void sk_lstm_layer_parse(Layer *, const char *);
 
-size_t sk_lstm_layer_count_params(Layer *);
+void sk_lstm_layer_count_params(Layer *);
 
 void sk_lstm_layer_initialize(Layer *, Tensor, Tensor);
 

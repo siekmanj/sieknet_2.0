@@ -1,0 +1,14 @@
+[network]
+name: recurrent_model
+input_dimension: 45
+input: input_embedding
+
+[fully_connected layer]
+name: input_embedding
+size: 32
+logistic: tanh
+
+[lstm layer]
+input: input_embedding
+name: action
+size: 17

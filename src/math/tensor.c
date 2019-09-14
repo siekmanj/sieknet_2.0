@@ -603,6 +603,45 @@ void tensor_elementwise_add(const Tensor a, const Tensor b, Tensor c){
 }
 
 /*
+ * Performs an elementwise addition on two tensors and stores the result
+ * in a third tensor.
+ */
+void tensor_elementwise_sub(const Tensor a, const Tensor b, Tensor c){
+  if(a.n != b.n || a.n != c.n)
+    SK_ERROR("Tensors must have same number of dims (%lu vs %lu vs %lu).", a.n, b.n, c.n);
+    
+  for(int i = 0; i < a.n; i++)
+    if(a.dims[i] != b.dims[i] || a.dims[i] != c.dims[i])
+      SK_ERROR("Tensor dimensions do not match on dimension %d: %lu vs %lu vs %lu\n", i, a.dims[i], b.dims[i], c.dims[i]);
+
+  size_t num_iters = 1;
+  for(int i = 0; i < a.n; i++)
+    num_iters *= a.dims[i];
+  
+  size_t pos[a.n];
+  for(int i = 0; i < a.n; i++)
+    pos[i] = 0;
+
+  float *src_a  = tensor_raw(a);
+  float *src_b  = tensor_raw(b);
+  float *dest_c = tensor_raw(c);
+
+  for(int i = 0; i < num_iters; i++){
+    float one = src_a[tensor_flat_idx(a, pos, a.n)];
+    float two = src_b[tensor_flat_idx(b, pos, b.n)];
+    dest_c[tensor_flat_idx(c, pos, c.n)] = one - two;
+    
+    pos[a.n - 1]++;
+    for(int i = a.n - 1; i > 0; i--){
+      if(!(pos[i] % a.dims[i])){
+        pos[i-1]++;
+        pos[i] = 0;
+      }else break;
+    }
+  }
+}
+
+/*
  * Performs an elementwise multiplication on two tensors and stores the result
  * in a third tensor.
  */
