@@ -5,18 +5,25 @@
 #include <tensor.h>
 #include <parser.h>
 
+/*
+ * Constants:
+ * last mean (layer size)
+ * last mean diff (layer size)
+ * num steps
+ */
+
 typedef struct welford_layer_data_{
 
   size_t num_steps;
   Tensor steps;
   Tensor mean;
-  Tensor var;
-  Tensor mean_diff;
+  Tensor std;
 
+  Tensor mean_diff;
   Tensor last_mean;
   Tensor last_mean_diff;
 
-	Tensor input_gradient;
+  Tensor intermediate_result;
 
 } WF_layer_data;
 
@@ -26,18 +33,40 @@ typedef struct welford_layer_data_{
  */
 void sk_welford_layer_forward(Layer *l, size_t t){
   WF_layer_data *d = (WF_layer_data*)l->data;
+
+  if(l->input_layers[0]->rank >= l->rank)
+    SK_ERROR("Cannot do recurrent connections with welford layer\n");
+
   Tensor x = get_subtensor(l->input_layers[0]->output, t);
+
+#if 1
+  Tensor mu = get_subtensor(d->mean, t);
+  Tensor md = get_subtensor(d->mean_diff, t);
   //if(l->trainable){
     if(d->num_steps == 1){
       tensor_copy(x, d->mean);
       tensor_fill(d->mean_diff, 1e-2);
-      tensor_fill(d->var, 1.0f);
+      tensor_fill(d->std, 1.0f);
+    }else{
+      tensor_elementwise_sub(x, d->last_mean, mu);
+      tensor_scalar_mul(x, 1/(d->num_steps), x);
+      tensor_elementwise_add(mu, d->last_mean, mu);
+
+      tensor_elementwise_sub(x, d->last_mean, md);
+      tensor_elementwise_sub(x, mu, d->intermediate_result);
+      tensor_elementwise_mul(md, d->intermediate_result, d->intermediate_result);
+      tensor_elementwise_add(d->last_mean_diff, md, md);
     }
-    //Tensor timesteps = get_subtensor(d->num_steps, t);
-
-
-
+    d->num_steps++;
+    tensor_copy(mu, d->last_mean);
+    tensor_copy(md, d->last_mean_diff);
   //}
+
+  Tensor std = get_subtensor(d->std, t);
+  //tensor_
+#endif
+
+  
 }
 
 /*

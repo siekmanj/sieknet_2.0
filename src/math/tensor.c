@@ -683,13 +683,20 @@ void tensor_elementwise_mul(const Tensor a, const Tensor b, Tensor c){
 /*
  * Multiplies the contents of a tensor by a scalar value.
  */
-void tensor_scalar_mul(Tensor t, float a){
+void tensor_scalar_mul(Tensor t, float a, Tensor dest){
+  if(t.n != dest.n)
+    SK_ERROR("Tensors must have same number of dims (%lu vs %lu).", t.n, dest.n);
+    
+  for(int i = 0; i < t.n; i++)
+    if(t.dims[i] != dest.dims[i])
+      SK_ERROR("Tensor dimensions do not match on dimension %d: %lu vs %lu\n", i, t.dims[i], dest.dims[i]);
+
   if(t.device == SIEKNET_CPU){
     size_t pos[t.n];
     memset(pos, '\0', sizeof(size_t)*t.n);
 
     for(int i = 0; i < t.size; i++){
-      tensor_raw(t)[tensor_flat_idx(t, pos, t.n)] *= a;
+      tensor_raw(dest)[tensor_flat_idx(dest, pos, dest.n)] = tensor_raw(t)[tensor_flat_idx(t, pos, t.n)] * a;
       pos[t.n - 1]++;
       for(int j = t.n - 1; j > 0; j--){
         if(!(pos[j] % t.dims[j])){

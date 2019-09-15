@@ -42,7 +42,7 @@ int main(){
     Tensor b = create_tensor(SIEKNET_CPU, 3, 4, 5);
     tensor_fill_random(a, 0, 1);
     tensor_copy(a, b);
-    tensor_scalar_mul(b, 0.1);
+    tensor_scalar_mul(b, 0.1, b);
 
     int success = 1;
     for(int i = 0; i < 3; i++){
@@ -215,6 +215,43 @@ int main(){
           float b_ijk = b_raw[tensor_get_offset(b, i, j, k)];
           float c_ijk = c_raw[tensor_get_offset(c, i, j, k)];
           if(a_ijk * b_ijk != c_ijk){
+            printf("%f + %f should be %f, got %f\n", a_ijk, b_ijk, a_ijk + b_ijk, c_ijk);
+            success = 0;
+          }
+        }
+      }
+      
+    }
+    if(success)
+      printf("PASSED\n");
+    else
+      printf("FAILED\n");
+    tensor_dealloc(a);
+    tensor_dealloc(b);
+    tensor_dealloc(c);
+  }
+
+  {
+    printf("%-50s", "ELEMENTWISE_SUB: ");
+    Tensor a = create_tensor(SIEKNET_CPU, 4, 5, 6);
+    Tensor b = create_tensor(SIEKNET_CPU, 4, 5, 6);
+    Tensor c = create_tensor(SIEKNET_CPU, 4, 5, 6);
+    tensor_fill_random(a, 0, 1);
+    tensor_fill_random(b, 0, 1);
+    float *a_raw = tensor_raw(a);
+    float *b_raw = tensor_raw(b);
+    float *c_raw = tensor_raw(c);
+    
+    tensor_elementwise_sub(a, b, c);
+
+    int success = 1;
+    for(int i = 0; i < 4; i++){
+      for(int j = 0; j < 5; j++){
+        for(int k = 0; k < 6; k++){
+          float a_ijk = a_raw[tensor_get_offset(a, i, j, k)];
+          float b_ijk = b_raw[tensor_get_offset(b, i, j, k)];
+          float c_ijk = c_raw[tensor_get_offset(c, i, j, k)];
+          if(a_ijk - b_ijk != c_ijk){
             printf("%f + %f should be %f, got %f\n", a_ijk, b_ijk, a_ijk + b_ijk, c_ijk);
             success = 0;
           }
