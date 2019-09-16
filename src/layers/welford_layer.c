@@ -62,8 +62,12 @@ void sk_welford_layer_forward(Layer *l, size_t t){
     tensor_copy(md, d->last_mean_diff);
   //}
 
-  Tensor std = get_subtensor(d->std, t);
-  //tensor_
+  //Tensor std = get_subtensor(d->std, t);
+  //tensor_copy(md, std);
+  //tensor_scalar_mul(std, 1/d->num_steps, std);
+  //tensor_sqrt(std);
+
+
 #endif
 
   

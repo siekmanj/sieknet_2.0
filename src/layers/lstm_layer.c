@@ -16,9 +16,11 @@ typedef struct lstm_data_{
   Tensor cell_state_tanh;
   Tensor last_cell_state;
   Tensor cell_grad;
+  Tensor cell_intermediate_grad;
 
   Tensor gates;
   Tensor gate_grads;
+  Tensor gate_intermediate_grads;
 
   Tensor cell_future_grad;
 } LSTM_layer_data;
@@ -36,12 +38,14 @@ void sk_lstm_layer_forward(Layer *l, size_t t){
   Tensor forgt_gate_dy = get_subtensor(d->gate_grads, t, 2);
   Tensor outpt_gate_dy = get_subtensor(d->gate_grads, t, 3);
 
-  d->gates.dims[0]            = t + 1;
-  d->gate_grads.dims[0]       = t + 1;
-  d->cell_grad.dims[0]        = t + 1;
-  d->cell_state.dims[0]       = t + 1;
-  d->cell_state_tanh.dims[0]  = t + 1;
-  d->cell_future_grad.dims[0] = t + 1;
+  d->gates.dims[0]                   = t + 1;
+  d->gate_grads.dims[0]              = t + 1;
+  d->gate_intermediate_grads.dims[0] = t + 1;
+  d->cell_grad.dims[0]               = t + 1;
+  d->cell_intermediate_grad.dims[0]  = t + 1;
+  d->cell_state.dims[0]              = t + 1;
+  d->cell_state_tanh.dims[0]         = t + 1;
+  d->cell_future_grad.dims[0]        = t + 1;
 
   tensor_fill(get_subtensor(d->gates, t), 0.0f);
 
@@ -120,42 +124,62 @@ void sk_lstm_layer_backward(Layer *l, size_t t){
   Tensor forgt_gate_dy = get_subtensor(d->gate_grads, t, 2);
   Tensor outpt_gate_dy = get_subtensor(d->gate_grads, t, 3);
 
+#define TRYNEW
+#ifdef TRYNEW
+  Tensor input_nonl_g = get_subtensor(d->gate_intermediate_grads, t, 0);
+  Tensor input_gate_g = get_subtensor(d->gate_intermediate_grads, t, 1);
+  Tensor forgt_gate_g = get_subtensor(d->gate_intermediate_grads, t, 2);
+  Tensor outpt_gate_g = get_subtensor(d->gate_intermediate_grads, t, 3);
+#else
+  Tensor input_nonl_g = input_nonl_dy;
+  Tensor input_gate_g = input_gate_dy;
+  Tensor forgt_gate_g = forgt_gate_dy;
+  Tensor outpt_gate_g = outpt_gate_dy;
+#endif
+
   Tensor cell_grad   = get_subtensor(d->cell_grad, t);
   Tensor cell_state_tanh = get_subtensor(d->cell_state_tanh, t);
 
+#ifdef TRYNEW
+  Tensor cell_intermediate_grad = get_subtensor(d->cell_intermediate_grad, t);
+#else
+  Tensor cell_intermediate_grad = cell_grad;
+#endif
 
   /* Derivative for cell state */
-  tensor_elementwise_mul(cell_grad, outpt_gate_y, cell_grad);
-  tensor_elementwise_mul(cell_grad, gradient, cell_grad);
+  tensor_elementwise_mul(cell_grad, outpt_gate_y, cell_intermediate_grad);
+  tensor_elementwise_mul(cell_intermediate_grad, gradient, cell_intermediate_grad);
+
 
   /* Add future gradient if one exists */
   if(t < max_t){
+    //printf("\t(getting future)\n");
     Tensor cell_future = get_subtensor(d->cell_future_grad, t);
-    tensor_elementwise_add(cell_grad, cell_future, cell_grad);
+    tensor_elementwise_add(cell_intermediate_grad, cell_future, cell_intermediate_grad);
   }
 
   /* Derivative for output gate */
-  tensor_elementwise_mul(outpt_gate_dy, cell_state_tanh, outpt_gate_dy);
-  tensor_elementwise_mul(outpt_gate_dy, gradient, outpt_gate_dy);
+  tensor_elementwise_mul(outpt_gate_dy, cell_state_tanh, outpt_gate_g);
+  tensor_elementwise_mul(outpt_gate_g, gradient, outpt_gate_g);
 
   /* Derivative for input gate */
-  tensor_elementwise_mul(input_gate_dy, input_nonl_y, input_gate_dy);
-  tensor_elementwise_mul(input_gate_dy, cell_grad, input_gate_dy);
+  tensor_elementwise_mul(input_gate_dy, input_nonl_y, input_gate_g);
+  tensor_elementwise_mul(input_gate_g, cell_intermediate_grad, input_gate_g);
 
   /* Derivative for input nonlinearity */
-  tensor_elementwise_mul(input_nonl_dy, input_gate_y, input_nonl_dy);
-  tensor_elementwise_mul(input_nonl_dy, cell_grad, input_nonl_dy);
+  tensor_elementwise_mul(input_nonl_dy, input_gate_y, input_nonl_g);
+  tensor_elementwise_mul(input_nonl_g, cell_intermediate_grad, input_nonl_g);
 
   if(t > 0){
     Tensor last_cell_state = get_subtensor(d->cell_state, t-1);
     Tensor last_future     = get_subtensor(d->cell_future_grad, t-1);
 
     /* Derivative for forget gate */
-    tensor_elementwise_mul(forgt_gate_dy, cell_grad, forgt_gate_dy);
-    tensor_elementwise_mul(forgt_gate_dy, last_cell_state, forgt_gate_dy);
+    tensor_elementwise_mul(forgt_gate_dy, cell_intermediate_grad, forgt_gate_g);
+    tensor_elementwise_mul(forgt_gate_g, last_cell_state, forgt_gate_g);
 
     /* Derivative for last cell state */
-    tensor_elementwise_mul(cell_grad, forgt_gate_y, last_future);
+    tensor_elementwise_mul(cell_intermediate_grad, forgt_gate_y, last_future);
   }else
     tensor_fill(forgt_gate_dy, 0.0f);
   
@@ -177,13 +201,21 @@ void sk_lstm_layer_backward(Layer *l, size_t t){
     }else continue;
 
     for(int gate = 0; gate < 4; gate++){
+#ifdef TRYNEW
+      Tensor g = get_subtensor(d->gate_intermediate_grads, t, gate);
+#else
       Tensor g = get_subtensor(d->gate_grads, t, gate);
+#endif
       tensor_mmult(x, g, get_subtensor(d->weight_grad[i], gate));
       if(dx.data)
         tensor_mmult(get_subtensor(d->weights[i], gate), g, dx);
     }
   }
+#ifdef TRYNEW
+  tensor_elementwise_add(d->bias_grad, get_subtensor(d->gate_intermediate_grads, t), d->bias_grad);
+#else
   tensor_elementwise_add(d->bias_grad, get_subtensor(d->gate_grads, t), d->bias_grad);
+#endif
 }
 
 void sk_lstm_layer_dealloc(Layer *l){
@@ -218,8 +250,10 @@ void sk_lstm_layer_dealloc(Layer *l){
   tensor_dealloc(d->cell_state_tanh);
   tensor_dealloc(d->last_cell_state);
   tensor_dealloc(d->cell_grad);
+  tensor_dealloc(d->cell_intermediate_grad);
   tensor_dealloc(d->gates);
   tensor_dealloc(d->gate_grads);
+  tensor_dealloc(d->gate_intermediate_grads);
   tensor_dealloc(d->cell_future_grad);
 
   free(d);
@@ -296,6 +330,9 @@ void sk_lstm_layer_initialize(Layer *l, Tensor p, Tensor g){
   d->cell_state_tanh  = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
   d->cell_grad        = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
   d->cell_future_grad = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
+
+  d->cell_intermediate_grad   = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
+  d->gate_intermediate_grads  = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, 4, l->size);
 
   d->last_cell_state = create_tensor(SIEKNET_CPU, l->size);
   

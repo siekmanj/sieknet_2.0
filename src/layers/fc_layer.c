@@ -12,6 +12,7 @@ typedef struct fc_data_{
   Tensor bias_grad;
   Tensor *weight_grad;
   Tensor intermediate_grad;
+  Tensor activation_grad;
 } FC_layer_data;
 
 /*
@@ -23,9 +24,11 @@ void sk_fc_layer_forward(Layer *l, size_t t){
   FC_layer_data *d = (FC_layer_data*)l->data;
 
   Tensor y = get_subtensor(l->output, t);
-  Tensor dy = get_subtensor(d->intermediate_grad, t);
+  //Tensor dy = get_subtensor(d->intermediate_grad, t);
+  Tensor dy = get_subtensor(d->activation_grad, t);
 
   d->intermediate_grad.dims[0] = t + 1;
+  d->activation_grad.dims[0] = t + 1;
 
   /* Zero the output tensor for this timestep */
   tensor_fill(y, 0.0f);
@@ -57,9 +60,10 @@ void sk_fc_layer_forward(Layer *l, size_t t){
 void sk_fc_layer_backward(Layer *l, size_t t){
   FC_layer_data *d = (FC_layer_data*)l->data;
 
-  Tensor o = get_subtensor(l->gradient, t);
-  Tensor g = get_subtensor(d->intermediate_grad, t);
-  tensor_elementwise_mul(o, g, g); 
+  Tensor o  = get_subtensor(l->gradient, t);
+  Tensor dy = get_subtensor(d->activation_grad, t);
+  Tensor g  = get_subtensor(d->intermediate_grad, t);
+  tensor_elementwise_mul(o, dy, g); 
 
   for(int i = 0; i < l->num_input_layers; i++){
     Layer *in = l->input_layers[i];
@@ -84,8 +88,13 @@ void sk_fc_layer_backward(Layer *l, size_t t){
     tensor_mmult(x, g, dw); // dW = x * g
 
     /* Compute input gradients if needed */
-    if(dx.data)
+    if(dx.data){
       tensor_mmult(w, g, dx); // dX = g * w
+      //printf("('%s') computing input grad for '%s'\n", l->name, in->name);
+      //tensor_print(dx);
+    }
+
+
   }
 
   /* Compute bias gradients */
@@ -120,6 +129,7 @@ void sk_fc_layer_dealloc(Layer *l){
     free(l->input_names);
 
   tensor_dealloc(d->intermediate_grad);
+  tensor_dealloc(d->activation_grad);
   tensor_dealloc(d->bias);
   tensor_dealloc(d->bias_grad);
 
@@ -199,6 +209,7 @@ void sk_fc_layer_initialize(Layer *l, Tensor p, Tensor g){
   d->weights           = calloc(l->num_input_layers, sizeof(Tensor));
   d->weight_grad       = calloc(l->num_input_layers, sizeof(Tensor));
   d->intermediate_grad = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
+  d->activation_grad   = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
 
   size_t input_dim = 0;
   for(int i = 0; i < l->num_input_layers; i++)

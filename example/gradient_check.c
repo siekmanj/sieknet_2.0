@@ -40,6 +40,43 @@ int main(int argc, char **argv){
 
   SK_COST_FN cost_fn = SK_QUADRATIC_COST;
 
+  printf("Checking determinism...\n");
+
+	sk_forward(&n, x);
+  size_t seq_len = n.t;
+	sk_cost(n.layers[n.depth-1], y, cost_fn);
+	sk_backward(&n);
+
+  Tensor p1 = create_tensor(SIEKNET_CPU, n.param_grad.size);
+  tensor_copy(n.param_grad, p1);
+  tensor_fill(n.param_grad, 0.0f);
+
+  n.t = seq_len;
+	sk_cost(n.layers[n.depth-1], y, cost_fn);
+	sk_backward(&n);
+
+  Tensor p2 = create_tensor(SIEKNET_CPU, n.param_grad.size);
+  tensor_copy(n.param_grad, p2);
+
+  float *p1_raw = tensor_raw(p1);
+  float *p2_raw = tensor_raw(p2);
+  int success = 1;
+  for(int i = 0; i < p1.size; i++){
+    if(p1_raw[i] != p2_raw[i]){
+      printf("pgrad %d doesn't match during determinism check - %f vs %f\n", i, p1_raw[i], p2_raw[i]);
+      success = 0;
+    }
+  }
+  if(success)
+    printf("PASSED\n");
+  else
+    printf("FAILED\n");
+  tensor_dealloc(p1);
+  tensor_dealloc(p2);
+
+	sk_wipe(&n);
+  tensor_fill(n.param_grad, 0.0f);
+
 	printf("Checking %'lu parameters...\n", n.num_params);
 	double norm = 0;
 	size_t count = 0;
