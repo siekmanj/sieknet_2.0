@@ -163,15 +163,25 @@ int main(int argc, char **argv){
   printf("\n");
 
   /* Create identical environments for every thread */
-//#ifdef COMPILED_FOR_MUJOCO
+  if(!strcmp(environment_name, "ant"))
+    for(int i = 0; i < num_threads; i++)
+      envs[i] = create_ant_env();
+  if(!strcmp(environment_name, "hopper"))
+    for(int i = 0; i < num_threads; i++)
+      envs[i] = create_hopper_env();
+  if(!strcmp(environment_name, "half_cheetah"))
+    for(int i = 0; i < num_threads; i++)
+      envs[i] = create_hopper_env();
   if(!strcmp(environment_name, "humanoid"))
     for(int i = 0; i < num_threads; i++)
       envs[i] = create_humanoid_env();
-//#else
+  if(!strcmp(environment_name, "walker2d"))
+    for(int i = 0; i < num_threads; i++)
+      envs[i] = create_walker2d_env();
+
   if(!strcmp(environment_name, "cassie"))
     for(int i = 0; i < num_threads; i++)
       envs[i] = create_cassie_env();
-//#endif
 
   printf("\n   _____ ____________ __ _   ______________  \n");
   printf("  / ___//  _/ ____/ //_// | / / ____/_	__/  \n");
@@ -242,14 +252,16 @@ int main(int argc, char **argv){
 
     int hrs_left = (int)(time_left / (60 * 60));
     int min_left = ((int)(time_left - (hrs_left * 60 * 60))) / 60;
+    int sec_left = (int)(time_left - (hrs_left * 60 * 60 + min_left * 60));
 
     float batch_avg = avg_return / ((iter % reset_every) + 1);
     float batch_trend = avg_trend / ((iter % reset_every) + 1);
-    printf("Iteration %lu took %3.2fs | avg return %6.2f | trend %6.2f | %5.3fs per 1k samples | %3dh %2dm | total timesteps %'9lu \t\r", iter+1, elapsed, batch_avg, batch_trend, secs_per_sample * 1000, hrs_left, min_left, num_steps);
+    printf("Iteration %lu took %3.2fs | avg return %6.2f | trend %6.2f | %5.3fs per 1k timesteps | %3dh %2dm %2ds remain | %'9lu \t\r", iter+1, elapsed, batch_avg, batch_trend, secs_per_sample * 1000, hrs_left, min_left, sec_left, num_steps);
 
     steps_before = num_steps;
     last_reward = reward;
     iter++;
   }
   while(num_steps < timesteps);
+  printf("\nExperiment concluded.\n");
 }

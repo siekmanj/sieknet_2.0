@@ -3,6 +3,10 @@
 #include <ars.h>
 #include <math.h>
 
+#ifdef SIEKNET_USE_OMP
+#include <omp.h>
+#endif
+
 static int ars_comparator(const void *one, const void *two){
 	Delta *a = (Delta*)one;
 	Delta *b = (Delta*)two;
@@ -19,14 +23,17 @@ static int ars_comparator(const void *one, const void *two){
 }
 
 static void ars_step(ARS r){
-#if _OPENMP
+#ifdef _OPENMP
   omp_set_num_threads(r.num_threads);
   #pragma omp parallel for default(none) shared(r)
 #endif
   /* Do rollouts */
   for(int i = 0; i < r.directions; i++){
-    //size_t thread = omp_get_thread_num();
+#ifdef _OPENMP
+    size_t thread = omp_get_thread_num();
+#else
     size_t thread = 0;
+#endif
 
     tensor_elementwise_add(r.params, r.deltas[i].d, r.deltas[i].p);
     r.deltas[i].r_pos = r.f(r.deltas[i].p, thread);

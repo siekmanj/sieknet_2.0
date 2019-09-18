@@ -36,6 +36,9 @@ typedef struct layer_{
   Tensor output;
   Tensor loutput;
 
+  int blocking;
+  int frozen;
+
   void *data;
 
   SK_LAYER_TYPE layertype;

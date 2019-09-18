@@ -85,10 +85,11 @@ void sk_fc_layer_backward(Layer *l, size_t t){
     }else continue;
 
     /* Compute weight gradients */
-    tensor_mmult(x, g, dw); // dW = x * g
+    if(!l->frozen)
+      tensor_mmult(x, g, dw); // dW = x * g
 
     /* Compute input gradients if needed */
-    if(dx.data){
+    if(!l->blocking && dx.data){
       tensor_mmult(w, g, dx); // dX = g * w
       //printf("('%s') computing input grad for '%s'\n", l->name, in->name);
       //tensor_print(dx);
@@ -186,7 +187,6 @@ void sk_fc_layer_count_params(Layer *l){
   }
   l->num_params += l->size;
   l->num_consts = 0;
-  //return l->num_params;
 }
 
 /*
@@ -194,10 +194,12 @@ void sk_fc_layer_count_params(Layer *l){
  * parameter/parameter gradient tensors, allocates memory
  */
 void sk_fc_layer_initialize(Layer *l, Tensor p, Tensor g){
-  l->output         = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
-  l->gradient       = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
+  l->blocking = 0;
+  l->frozen   = 0;
 
-  l->loutput      = create_tensor(SIEKNET_CPU, l->size);
+  l->output   = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
+  l->gradient = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
+  l->loutput  = create_tensor(SIEKNET_CPU, l->size);
 
   l->forward      = sk_fc_layer_forward;
   l->backward     = sk_fc_layer_backward;
@@ -240,6 +242,11 @@ void sk_fc_layer_initialize(Layer *l, Tensor p, Tensor g){
 
     param_offset += l->size * l->input_layers[i]->size;
   }
+
+  if(l->weight_initialization == SK_XAVIER)
+      tensor_fill_random(d->bias, 0, 1 / sqrt(input_dim));
+  if(l->weight_initialization == SK_HE)
+      tensor_fill_random(d->bias, 0, sqrt(2 / input_dim));
 
   l->output.dims[0] = 1;
   l->gradient.dims[0] = 1;

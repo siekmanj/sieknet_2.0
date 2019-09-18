@@ -1,5 +1,5 @@
 [network]
-name: recurrent_model
+name: humanoid_world_model
 input_dimension: 45
 input: input_embedding
 
@@ -8,7 +8,20 @@ name: input_embedding
 size: 32
 logistic: tanh
 
-[lstm layer]
-input: input_embedding
+[fully_connected layer]
 name: action
+input: input_embedding
+logistic: tanh
 size: 17
+
+[fully_connected layer]
+name: state_prediction
+input: input_embedding, action
+logistic: linear
+size: 40
+
+[fully_connected layer]
+name: reward_prediction
+input: input_embedding, action, state_prediction
+logistic: linear
+size: 1

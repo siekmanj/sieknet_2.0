@@ -124,27 +124,15 @@ void sk_lstm_layer_backward(Layer *l, size_t t){
   Tensor forgt_gate_dy = get_subtensor(d->gate_grads, t, 2);
   Tensor outpt_gate_dy = get_subtensor(d->gate_grads, t, 3);
 
-#define TRYNEW
-#ifdef TRYNEW
   Tensor input_nonl_g = get_subtensor(d->gate_intermediate_grads, t, 0);
   Tensor input_gate_g = get_subtensor(d->gate_intermediate_grads, t, 1);
   Tensor forgt_gate_g = get_subtensor(d->gate_intermediate_grads, t, 2);
   Tensor outpt_gate_g = get_subtensor(d->gate_intermediate_grads, t, 3);
-#else
-  Tensor input_nonl_g = input_nonl_dy;
-  Tensor input_gate_g = input_gate_dy;
-  Tensor forgt_gate_g = forgt_gate_dy;
-  Tensor outpt_gate_g = outpt_gate_dy;
-#endif
 
   Tensor cell_grad   = get_subtensor(d->cell_grad, t);
   Tensor cell_state_tanh = get_subtensor(d->cell_state_tanh, t);
 
-#ifdef TRYNEW
   Tensor cell_intermediate_grad = get_subtensor(d->cell_intermediate_grad, t);
-#else
-  Tensor cell_intermediate_grad = cell_grad;
-#endif
 
   /* Derivative for cell state */
   tensor_elementwise_mul(cell_grad, outpt_gate_y, cell_intermediate_grad);
@@ -153,7 +141,6 @@ void sk_lstm_layer_backward(Layer *l, size_t t){
 
   /* Add future gradient if one exists */
   if(t < max_t){
-    //printf("\t(getting future)\n");
     Tensor cell_future = get_subtensor(d->cell_future_grad, t);
     tensor_elementwise_add(cell_intermediate_grad, cell_future, cell_intermediate_grad);
   }
@@ -201,21 +188,13 @@ void sk_lstm_layer_backward(Layer *l, size_t t){
     }else continue;
 
     for(int gate = 0; gate < 4; gate++){
-#ifdef TRYNEW
       Tensor g = get_subtensor(d->gate_intermediate_grads, t, gate);
-#else
-      Tensor g = get_subtensor(d->gate_grads, t, gate);
-#endif
       tensor_mmult(x, g, get_subtensor(d->weight_grad[i], gate));
       if(dx.data)
         tensor_mmult(get_subtensor(d->weights[i], gate), g, dx);
     }
   }
-#ifdef TRYNEW
   tensor_elementwise_add(d->bias_grad, get_subtensor(d->gate_intermediate_grads, t), d->bias_grad);
-#else
-  tensor_elementwise_add(d->bias_grad, get_subtensor(d->gate_grads, t), d->bias_grad);
-#endif
 }
 
 void sk_lstm_layer_dealloc(Layer *l){
@@ -363,6 +342,11 @@ void sk_lstm_layer_initialize(Layer *l, Tensor p, Tensor g){
 
     param_offset += d->weights[i].size;
   }
+
+  if(l->weight_initialization == SK_XAVIER)
+      tensor_fill_random(d->bias, 0, 1 / sqrt(input_dim));
+  if(l->weight_initialization == SK_HE)
+      tensor_fill_random(d->bias, 0, sqrt(2 / input_dim));
 
   l->output.dims[0] = 1;
   l->gradient.dims[0] = 1;

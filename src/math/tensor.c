@@ -850,7 +850,8 @@ void tensor_print(Tensor t){
   for(int i = 0; i < t.n; i++){
     printf("%lu", t.dims[i]);
     if(i < t.n - 1) printf(" x ");
-    else printf(") - %lu reals\n", t.size);
+    //else printf(") - %lu reals\n", t.size);
+    else printf(")\n");
   }
 
   size_t pos[t.n];
@@ -878,7 +879,7 @@ void tensor_print(Tensor t){
     printf("{ ");
     for(int i = 0; i < t.dims[t.n - 1]; i++){
       pos[t.n - 1] = i;
-      printf("%7.5f", tensor_raw(t)[tensor_flat_idx(t, pos, t.n)]);
+      printf("%8.5f", tensor_raw(t)[tensor_flat_idx(t, pos, t.n)]);
       if(i < t.dims[t.n - 1] - 1) printf(", ");
       else printf(" }\n");
     }

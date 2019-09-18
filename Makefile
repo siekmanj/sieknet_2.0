@@ -21,8 +21,8 @@ mnist:
 model_based:
 	$(CC) -Wall example/model_based.c $(SRC) $(INC) $(CGYM_INC) $(LIB) $(CGYM_LIB) -o bin/model_based
 
-random_search:
-	$(CC) -Wall example/random_search.c $(SRC) $(INC) $(CGYM_INC) $(LIB) $(CGYM_LIB) -o bin/ars
+ars:
+	$(CC) -Wall example/random_search.c $(SRC) $(INC) $(CGYM_INC) $(LIB) $(CGYM_LIB) -fopenmp -DSIEKNET_USE_OMP -o bin/ars
 
 eval_policy:
 	$(CC) -Wall example/eval_policy.c $(SRC) $(INC) $(CGYM_INC) $(LIB) $(CGYM_LIB) -o bin/eval_policy -DCOMPILED_FOR_MUJOCO

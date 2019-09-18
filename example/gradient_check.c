@@ -29,9 +29,18 @@ int main(int argc, char **argv){
 
 	Network n = sk_create_network(argv[1]);
 
-  printf("Loaded model: '%s'\n", n.name);
+  printf("\n   _____ ____________ __ _   ______________  \n");
+  printf("  / ___//  _/ ____/ //_// | / / ____/_	__/  \n");
+  printf("  \\__ \\ / // __/ / ,<  /  |/ / __/   / /   \n");
+  printf(" ___/ // // /___/ /| |/ /|  / /___  / /      \n");
+  printf("/____/___/_____/_/ |_/_/ |_/_____/ /_/	     \n");
+  printf("																					   \n");
+  printf("Gradient checking utility\n\n");
+  printf("Model: '%s'\n", n.name);
   for(int i = 0; i < n.depth; i++){
-    printf("\tExecution rank %d: '%s', parameter offset: %lu, # params: %lu\n", n.layers[i]->rank, n.layers[i]->name, n.layers[i]->param_idx, n.layers[i]->num_params);
+    printf("\tExecution rank %d: '%s'\n", n.layers[i]->rank, n.layers[i]->name);
+    printf("\t\tParam offset: %lu\n", n.layers[i]->param_idx);
+    printf("\t\tParams:       %lu\n", n.layers[i]->num_params);
   }
 	Tensor x = create_tensor(SIEKNET_CPU, t, n.input_dimension);
 	Tensor y = create_tensor(SIEKNET_CPU, t, n.layers[n.depth-1]->output.dims[1]);
@@ -40,7 +49,7 @@ int main(int argc, char **argv){
 
   SK_COST_FN cost_fn = SK_QUADRATIC_COST;
 
-  printf("Checking determinism...\n");
+  printf("\n\nChecking determinism...");
 
 	sk_forward(&n, x);
   size_t seq_len = n.t;
