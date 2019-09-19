@@ -50,7 +50,7 @@ static void ars_step(ARS r){
   if(r.algo == BASIC){
     for(int i = 0; i < b; i++){
       float weight = -(r.step_size / b) * (r.deltas[i].r_pos - r.deltas[i].r_neg);
-      tensor_scalar_mul(r.deltas[i].d, weight * r.step_size, r.deltas[i].d);
+      tensor_scalar_mul(r.deltas[i].d, weight * r.step_size);
     }
   }else if(r.algo == AUGMENTED){
     /* Mean and standard deviation of reward calculation */
@@ -72,7 +72,7 @@ static void ars_step(ARS r){
     float weight = -1 / (b * std);
     for(int i = 0; i < b; i++){
       float reward = (r.deltas[i].r_pos - r.deltas[i].r_neg) / r.std;
-      tensor_scalar_mul(r.deltas[i].d, weight * reward * r.step_size, r.deltas[i].d);
+      tensor_scalar_mul(r.deltas[i].d, weight * reward * r.step_size);
     }
   }
   

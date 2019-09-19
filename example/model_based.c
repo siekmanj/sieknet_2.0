@@ -157,116 +157,133 @@ int main(int argc, char **argv){
   Tensor state_label  = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, state_pred->size);
   Tensor max_reward   = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, reward_pred->size);
   Tensor adjust_grad  = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, reward_pred->size);
-  Tensor just_ones    = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, reward_pred->size);
-  tensor_fill(just_ones, 1.0f);
 
   float best_reward = -INFINITY;
-
 
   Tensor x = create_tensor(SIEKNET_CPU, n.input_dimension);
   float buff[action->size];
 
-  for(int i = 0; i < 100; i++){
+  Optimizer o = create_optimizer(n.params, n.param_grad, SK_SGD);
+
+  size_t episodes = 1000;
+  size_t rollouts = 100;
+  size_t steps = 0;
+  
+  double reward_mean = 0;
+  double reward_mean_diff = 0;
+  for(int i = 0; i < episodes; i++){
     e.reset(e);
     e.seed(e);
     n.t = 0;
-    do {
-      int t = n.t;
+    float episode_reward = 0;
+    float episode_reward_cost = 0;
+    float episode_state_cost = 0;
+    for(int k = 0; k < rollouts; k++){
+      float rollout_reward = 0;
+      do {
+        int t = n.t;
 
-      for(int j = 0; j < n.input_dimension; j++)
-        tensor_raw(x)[tensor_get_offset(x, j)] = e.state[j];
+        for(int j = 0; j < n.input_dimension; j++)
+          tensor_raw(x)[tensor_get_offset(x, j)] = e.state[j];
 
-      sk_forward(&n, x);
+        sk_forward(&n, x);
 
-      Tensor current_out = get_subtensor(action->output, t);
-      for(int j = 0; j < action->size; j++)
-        buff[j] = tensor_at(current_out, j);
+        Tensor current_out = get_subtensor(action->output, t);
+        for(int j = 0; j < action->size; j++)
+          buff[j] = tensor_at(current_out, j);
 
-      float true_reward = e.step(e, buff);
+        float true_reward = e.step(e, buff);
+        rollout_reward += true_reward;
 
-      Tensor state_label_t = get_subtensor(state_label, t);
-      for(int j = 0; j < n.input_dimension; j++)
-        tensor_raw(state_label_t)[tensor_get_offset(state_label_t, j)] = e.state[j];
+        Tensor state_label_t = get_subtensor(state_label, t);
+        for(int j = 0; j < n.input_dimension; j++)
+          tensor_raw(state_label_t)[tensor_get_offset(state_label_t, j)] = e.state[j];
 
-      Tensor reward_label_t = get_subtensor(reward_label, t);
-      tensor_raw(reward_label_t)[tensor_get_offset(reward_label_t, 0)] = true_reward;
+        Tensor reward_label_t = get_subtensor(reward_label, t);
+        tensor_raw(reward_label_t)[tensor_get_offset(reward_label_t, 0)] = true_reward;
 
-      if(true_reward > best_reward)
-        best_reward = true_reward;
+        if(true_reward > best_reward)
+          best_reward = true_reward;
 
-      e.render(e);
-    } while(!*e.done && n.t < 15);
+        //e.render(e);
+      } while(!*e.done && n.t < 400);
 
-    size_t ep_len = n.t;
-    reward_label.dims[0] = ep_len;
-    state_label.dims[0] = ep_len;
-    max_reward.dims[0] = ep_len;
-    adjust_grad.dims[0] = ep_len;
-    just_ones.dims[0] = ep_len;
+      size_t ep_len = n.t;
+      reward_label.dims[0] = ep_len;
+      state_label.dims[0]  = ep_len;
+      max_reward.dims[0]   = ep_len;
+      adjust_grad.dims[0]  = ep_len;
 
-    tensor_fill(max_reward, best_reward);
+      tensor_fill(max_reward, best_reward);
 
-    // Do gradient calc for the state prediction
-    float state_cost = sk_cost(state_pred, state_label, SK_QUADRATIC_COST);
-    for(int j = 0; j < n.depth; j++){
-      if(n.layers[j] == input_embedding || n.layers[j] == state_pred){
-        n.layers[j]->frozen = 0;
+      // Do gradient calc for the state prediction
+      float state_cost = sk_cost(state_pred, state_label, SK_QUADRATIC_COST);
+      for(int j = 0; j < n.depth; j++){
+        if(/*n.layers[j] == input_embedding || */n.layers[j] == state_pred){
+          n.layers[j]->frozen = 0;
+          n.layers[j]->blocking = 0;
+        }else{
+          n.layers[j]->frozen = 1;
+          n.layers[j]->blocking = 1;
+        }
+      }
+      sk_backward(&n);
+      n.t = ep_len;
+
+      // Do gradient calc for reward prediction
+      float reward_cost = sk_cost(reward_pred, reward_label, SK_QUADRATIC_COST);
+      for(int j = 0; j < n.depth; j++){
+        if(/*n.layers[j] == input_embedding || */n.layers[j] == reward_pred){
+          n.layers[j]->frozen = 0;
+        }else{
+          n.layers[j]->frozen = 1;
+        }
         n.layers[j]->blocking = 0;
-      }else{
-        n.layers[j]->frozen = 1;
-        n.layers[j]->blocking = 1;
       }
-    }
-    sk_backward(&n);
-    n.t = ep_len;
-    //tensor_print(n.param_grad);
-    //printf("Got state cost %f\n", state_cost);
-    //tensor_fill(n.param_grad, 0);
-    //getchar();
+      sk_backward(&n);
+      n.t = ep_len;
 
-    // Do gradient calc for reward prediction
-    float reward_cost = sk_cost(reward_pred, reward_label, SK_QUADRATIC_COST);
-    for(int j = 0; j < n.depth; j++){
-      if(n.layers[j] == input_embedding || n.layers[j] == reward_pred){
-        n.layers[j]->frozen = 0;
-      }else{
-        n.layers[j]->frozen = 1;
+#if 1
+      // Do gradient ascent on approximated reward
+      float ascent_cost = sk_cost(reward_pred, max_reward, SK_QUADRATIC_COST);
+      for(int j = 0; j < n.depth; j++){
+        if(n.layers[j] == reward_pred){
+          n.layers[j]->frozen = 1;
+          n.layers[j]->blocking = 0;
+        }else if(n.layers[j] == action || n.layers[j] == input_embedding){
+          n.layers[j]->frozen = 0;
+          n.layers[j]->blocking = 1;
+        }else{
+          n.layers[j]->frozen = 1;
+          n.layers[j]->blocking = 1;
+        }
       }
-      n.layers[j]->blocking = 0;
-    }
-    sk_backward(&n);
-    n.t = ep_len;
-    //tensor_print(n.param_grad);
-    //printf("Got reward cost %f\n", reward_cost);
-    //tensor_fill(n.param_grad, 0);
-    //getchar();
 
-    // Do gradient ascent on approximated reward
-    float ascent_cost = sk_cost(reward_pred, max_reward, SK_QUADRATIC_COST);
-    for(int j = 0; j < n.depth; j++){
-      if(n.layers[j] == reward_pred){
-        n.layers[j]->frozen = 1;
-        n.layers[j]->blocking = 0;
-      }else if(n.layers[j] == action){
-        n.layers[j]->frozen = 0;
-        n.layers[j]->blocking = 1;
-      }else{
-        n.layers[j]->frozen = 1;
-        n.layers[j]->blocking = 1;
-      }
-    }
-    tensor_print(reward_pred->gradient);
-    tensor_elementwise_sub(reward_pred->output, reward_label, adjust_grad);
-    tensor_elementwise_sub(just_ones, adjust_grad, adjust_grad);
-    tensor_elementwise_mul(adjust_grad, reward_pred->gradient, reward_pred->gradient);
-    tensor_print(reward_pred->gradient);
-    sk_backward(&n);
-    n.t = ep_len;
-    tensor_print(n.param_grad);
-    printf("Got ascent cost %f\n", ascent_cost);
-    tensor_fill(n.param_grad, 0);
-    getchar();
+      float std = 1; //TODO: std of rewards
 
+      tensor_elementwise_sub(reward_label, reward_pred->output, adjust_grad);
+
+      tensor_fabs(adjust_grad);
+      tensor_scalar_mul(adjust_grad, -1.0f / std);
+      tensor_expf(adjust_grad);
+      tensor_elementwise_mul(adjust_grad, reward_pred->gradient, reward_pred->gradient);
+      tensor_scalar_mul(reward_pred->gradient, -1.0f);
+
+      sk_backward(&n);
+      n.t = ep_len;
+
+      episode_reward      += rollout_reward / ep_len;
+      episode_state_cost  += state_cost / ep_len;
+      episode_reward_cost += reward_cost / ep_len;
+      steps += ep_len;
+    }
+    o.lr = 1e-6;
+#endif
+    printf("Ep. %d, reward %f, state cost %f, reward cost %f, steps %'9lu\n", i+1, episode_reward / episodes, episode_state_cost / episodes, episode_reward_cost / episodes, steps);
+    if(!(i%10)){
+      o.step(o);
+    }
+    sk_wipe(&n);
   }
   printf("done!\n");
 

@@ -9,17 +9,20 @@ name: input_embedding
 size: 64
 logistic: tanh
 
-[lstm layer]
+[fully_connected layer]
 input: input_embedding
-name: prediction
+name: state_prediction
+logistic: linear
 size: 40
 
-[lstm layer]
-input: input_embedding, prediction
+[fully_connected layer]
+input: input_embedding, state_prediction
 name: action
+logistic: tanh
 size: 10
 
-[lstm layer]
-input: input_embedding, prediction
+[fully_connected layer]
+input: input_embedding, state_prediction
 name: reward_prediction
+logistic: sigmoid
 size: 1

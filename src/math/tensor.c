@@ -223,14 +223,49 @@ void tensor_copy(Tensor src, Tensor dest){
   }
 }
 
+void tensor_fabs(Tensor t){
+  size_t pos[t.n];
+  memset(pos, '\0', sizeof(size_t)*t.n);
+
+  for(int i = 0; i < t.size; i++){
+    float *raw = &tensor_raw(t)[tensor_flat_idx(t, pos, t.n)];
+    if(*raw < 0)
+      *raw *= -1;
+
+    pos[t.n - 1]++;
+    for(int j = t.n - 1; j > 0; j--){
+      if(!(pos[j] % t.dims[j])){
+        pos[j-1]++;
+        pos[j] = 0;
+      }else break;
+    }
+  }
+}
+
+void tensor_expf(Tensor t){
+  size_t pos[t.n];
+  memset(pos, '\0', sizeof(size_t)*t.n);
+
+  for(int i = 0; i < t.size; i++){
+    float *raw = &tensor_raw(t)[tensor_flat_idx(t, pos, t.n)];
+
+    *raw = exp(*raw);
+
+    pos[t.n - 1]++;
+    for(int j = t.n - 1; j > 0; j--){
+      if(!(pos[j] % t.dims[j])){
+        pos[j-1]++;
+        pos[j] = 0;
+      }else break;
+    }
+  }
+}
+
 /*
  * Performs the sigmoid logistic function on a tensor. Also
  * computes the intermediate gradient (derivative of sigmoid).
  */
 void tensor_sigmoid_precompute(Tensor t, Tensor d){
-  if(t.n > 1)
-    SK_ERROR("Logistics not supported for non-1d tensors.");
-
   if(d.data != NULL && t.n != d.n)
     SK_ERROR("If derivative tensor is supplied, dimensions must match. T dims: %lu, d dims: %lu", t.n, d.n);
 
@@ -683,20 +718,23 @@ void tensor_elementwise_mul(const Tensor a, const Tensor b, Tensor c){
 /*
  * Multiplies the contents of a tensor by a scalar value.
  */
-void tensor_scalar_mul(Tensor t, float a, Tensor dest){
-  if(t.n != dest.n)
-    SK_ERROR("Tensors must have same number of dims (%lu vs %lu).", t.n, dest.n);
+void tensor_scalar_mul(Tensor t, float a){
+  //if(t.n != dest.n)
+  //  SK_ERROR("Tensors must have same number of dims (%lu vs %lu).", t.n, dest.n);
     
-  for(int i = 0; i < t.n; i++)
-    if(t.dims[i] != dest.dims[i])
-      SK_ERROR("Tensor dimensions do not match on dimension %d: %lu vs %lu\n", i, t.dims[i], dest.dims[i]);
+  //for(int i = 0; i < t.n; i++)
+  //  if(t.dims[i] != dest.dims[i])
+  //    SK_ERROR("Tensor dimensions do not match on dimension %d: %lu vs %lu\n", i, t.dims[i], dest.dims[i]);
 
   if(t.device == SIEKNET_CPU){
     size_t pos[t.n];
     memset(pos, '\0', sizeof(size_t)*t.n);
 
     for(int i = 0; i < t.size; i++){
-      tensor_raw(dest)[tensor_flat_idx(dest, pos, dest.n)] = tensor_raw(t)[tensor_flat_idx(t, pos, t.n)] * a;
+      //tensor_raw(dest)[tensor_flat_idx(dest, pos, dest.n)] = tensor_raw(t)[tensor_flat_idx(t, pos, t.n)] * a;
+      float *raw = &tensor_raw(t)[tensor_flat_idx(t, pos, t.n)];
+      *raw = *raw * a;
+
       pos[t.n - 1]++;
       for(int j = t.n - 1; j > 0; j--){
         if(!(pos[j] % t.dims[j])){

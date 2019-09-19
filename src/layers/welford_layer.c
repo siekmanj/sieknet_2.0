@@ -49,7 +49,7 @@ void sk_welford_layer_forward(Layer *l, size_t t){
       tensor_fill(d->std, 1.0f);
     }else{
       tensor_elementwise_sub(x, d->last_mean, mu);
-      tensor_scalar_mul(x, 1/(d->num_steps), x);
+      tensor_scalar_mul(x, 1/(d->num_steps));
       tensor_elementwise_add(mu, d->last_mean, mu);
 
       tensor_elementwise_sub(x, d->last_mean, md);
