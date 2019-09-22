@@ -111,7 +111,7 @@ int main(int argc, char **argv){
   if(weight_path)
     asm("nop"); //TODO: load weights
   else
-    n = sk_create_network(model_path);
+    n = sk_create(model_path);
 
   printf("Model: '%s'\n", n.name);
   for(int i = 0; i < n.depth; i++){

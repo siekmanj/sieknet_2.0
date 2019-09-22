@@ -27,7 +27,7 @@ int main(int argc, char **argv){
 	const double epsilon = 1e-2;
 	const double threshold = 1e-4;
 
-	Network n = sk_create_network(argv[1]);
+	Network n = sk_create(argv[1]);
 
   printf("\n   _____ ____________ __ _   ______________  \n");
   printf("  / ___//  _/ ____/ //_// | / / ____/_	__/  \n");

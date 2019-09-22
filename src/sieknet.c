@@ -55,6 +55,7 @@ static void initialize_network(Network *n){
   n->t = 0;
   n->trainable = 1;
   n->num_params = param_idx;
+  n->num_consts = const_idx;
 }
 
 Layer *sk_layer_from_name(Network *n, const char *name){
@@ -66,7 +67,7 @@ Layer *sk_layer_from_name(Network *n, const char *name){
   return NULL;
 }
 
-Network sk_create_network(const char *skfile){
+Network sk_create(const char *skfile){
   Network n = {0};
 
   char *src = sk_parser_string_from_file(skfile);
@@ -113,6 +114,28 @@ void sk_dealloc(Network *n){
   free(n->data_layer);
   free(n->name);
   free(n->input_layername);
+}
+
+void sk_save(Network *n, const char *filename){
+  FILE *fp = fopen(filename, "wb");
+
+  if(!fp)
+    SK_ERROR("Could not open '%s' for writing.\n", filename);
+
+  fwrite(&n->num_consts, sizeof(n->num_consts), 1, fp);
+
+  if(n->constants.device != SIEKNET_CPU)
+    SK_ERROR("Implement this.");
+
+  fwrite(&n->constants.data, sizeof(float), n->num_consts, fp);
+
+  fwrite(&n->num_params, sizeof(n->num_params), 1, fp);
+
+  if(n->params.device != SIEKNET_CPU)
+    SK_ERROR("Implement this.");
+
+  fwrite(&n->params.data, sizeof(float), n->num_params, fp);
+  fclose(fp);
 }
 
 static void sk_run_inference(Network *n, Tensor x){

@@ -145,7 +145,7 @@ int main(int argc, char **argv){
   const size_t epochs      = 3;
   const size_t batches     = dataset_len / batch_size;
 
-  Network n = sk_create_network("model/mnist.sk");
+  Network n = sk_create("model/mnist.sk");
   Optimizer o = create_optimizer(n.params, n.param_grad, SK_SGD);
   o.lr = 0.01;
 

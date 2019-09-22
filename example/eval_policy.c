@@ -102,7 +102,7 @@ int main(int argc, char **argv){
   if(weight_path)
     SK_ERROR("Need to implement this!"); //TODO
   else
-    n = sk_create_network(model_path);
+    n = sk_create(model_path);
 
   /* Create identical environments for every thread */
 #ifdef COMPILED_FOR_MUJOCO

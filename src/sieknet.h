@@ -72,6 +72,7 @@ typedef struct net_{
   size_t trainable;
   size_t input_dimension;
   size_t num_params;
+  size_t num_consts;
   size_t depth;
   size_t t;
 
@@ -89,9 +90,9 @@ SK_LOGISTIC   sk_layer_parse_logistic(const char *);
 void parse_network(Network *, char *);
 void build_network(Network *);
 
-Network sk_load_network(const char *, const char *);
-Network sk_create_network(const char *);
-void    sk_save_network(const char *);
+Network sk_create(const char *);
+Network sk_load(const char *, const char *);
+void    sk_save(Network *, const char *);
 
 void   sk_forward(Network *, Tensor);
 double sk_cost(Layer *, Tensor, SK_COST_FN);

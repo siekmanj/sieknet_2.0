@@ -140,6 +140,17 @@ int main(int argc, char **argv){
   if(!success)
     exit(1);
 
+  int load_weights = 0;
+  if(weight_path){
+    FILE *fp = fopen(weight_path, "rb");
+    if(!fp)
+      load_weights = 0;
+    else{
+      load_weights = 1;
+      fclose(fp);
+    }
+  }
+
   Network     stack_nets[num_threads];
   Environment stack_envs[num_threads];
   size_t      stack_steps[num_threads];
@@ -151,12 +162,12 @@ int main(int argc, char **argv){
   memset(steps, '\0', sizeof(steps[0]) * num_threads);
 
   /* Create an identical network for every thread */
-  if(weight_path)
+  if(load_weights)
     SK_ERROR("Need to implement this!"); //TODO
   else{
     size_t start = clock_us();
     for(int i = 0; i < num_threads; i++){
-      networks[i] = sk_create_network(model_path);
+      networks[i] = sk_create(model_path);
       printf("Loaded %3d of %3lu networks in %5.4f seconds.\r", i+1, num_threads, (clock_us() - start)/1e6);
     }
   }
@@ -240,6 +251,11 @@ int main(int argc, char **argv){
     tensor_copy(algo.params, networks[0].params);
     float reward = rollout(&networks[0], &envs[0], NULL, 0, 0.0f, max_traj_len);
     avg_return += reward;
+
+    if(weight_path){
+      printf("saving\n");
+      sk_save(&networks[0], "test.bin");
+    }
 
     if(iter == 1)
       last_reward = reward;
