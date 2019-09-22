@@ -42,7 +42,7 @@ int main(){
     Tensor b = create_tensor(SIEKNET_CPU, 3, 4, 5);
     tensor_fill_random(a, 0, 1);
     tensor_copy(a, b);
-    tensor_scalar_mul(b, 0.1, b);
+    tensor_scalar_mul(b, 0.1);
 
     int success = 1;
     for(int i = 0; i < 3; i++){
