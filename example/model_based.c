@@ -1,3 +1,5 @@
+/* DEPRECATED */
+
 #include <getopt.h>
 #include <stdio.h>
 #include <string.h>    /* for strcmp   */
@@ -245,7 +247,8 @@ int main(int argc, char **argv){
 
 #if 1
       // Do gradient ascent on approximated reward
-      float ascent_cost = sk_cost(reward_pred, max_reward, SK_QUADRATIC_COST);
+      //float ascent_cost = sk_cost(reward_pred, max_reward, SK_QUADRATIC_COST);
+      tensor_fill(reward_pred->gradient, -1.0f);
       for(int j = 0; j < n.depth; j++){
         if(n.layers[j] == reward_pred){
           n.layers[j]->frozen = 1;

@@ -4,7 +4,8 @@ SRC = src/*.c src/*/*.c
 INC = -I src -I src/layers -I src/math -I src/parser -I src/env -I src/algo
 LIB = -lm
 
-CGYM_INC = -Icgym/ -Icgym/include -Lcgym
+CGYM_ROOT = $(HOME)/cgym
+CGYM_INC = -I$(CGYM_ROOT) -I$(CGYM_ROOT)/include -L$(CGYM_ROOT)
 CGYM_LIB = -lmjenvs -lcassieenvs
 
 $(shell mkdir -p bin)
