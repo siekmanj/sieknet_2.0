@@ -194,7 +194,7 @@ void tensor_copy(Tensor src, Tensor dest){
     SK_ERROR("Tensors must be on the same device.");
 
   if(src.n != dest.n)
-    SK_ERROR("Tensors must have same number of dimensions.");
+    SK_ERROR("Tensors must have same number of dimensions (%lu vs %lu)", src.n, dest.n);
 
   for(int i = 0; i < src.n; i++)
     if(src.dims[i] != dest.dims[i])

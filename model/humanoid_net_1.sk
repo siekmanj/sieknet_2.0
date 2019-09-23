@@ -1,27 +1,21 @@
 [network]
 name: humanoid_world_model
 input_dimension: 45
-input: input_embedding
+input: actor_hidden_1
 
 [fully_connected layer]
-name: input_embedding
-size: 32
-logistic: tanh
+name: actor_hidden_1
+size: 64
+logistic: relu
+
+[fully_connected layer]
+name: actor_hidden_2
+input: actor_hidden_1
+size: 64
+logistic: relu
 
 [fully_connected layer]
 name: action
-input: input_embedding
+input: actor_hidden_2
 logistic: tanh
 size: 17
-
-[fully_connected layer]
-name: state_prediction
-input: input_embedding, action
-logistic: linear
-size: 40
-
-[fully_connected layer]
-name: reward_prediction
-input: input_embedding, action, state_prediction
-logistic: linear
-size: 1
