@@ -182,6 +182,8 @@ Tensor tensor_clone(TENSOR_DEVICE device, Tensor src){
   else
     SK_ERROR("Not implemented.");
 
+  tensor_copy(src, ret);
+
   return ret;
 }
 

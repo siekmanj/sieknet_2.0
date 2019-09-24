@@ -13,7 +13,8 @@ static void initialize_network(Network *n){
   data->name             = "DATA_IN";
   data->params_per_input = 0;
   data->output           = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, n->input_dimension);
-  data->gradient.data    = NULL;
+  //data->gradient         = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, n->input_dimension);
+  data->gradient.data = NULL;
   n->data_layer = data;
 
   /*

@@ -4,6 +4,7 @@
 #include <tensor.h>
 #include <parser.h>
 
+#include <identity_layer.h>
 #include <fc_layer.h>
 #include <lstm_layer.h>
 #include <softmax_layer.h>
@@ -40,6 +41,8 @@ int sk_contains_layer(Layer **arr, Layer *comp, size_t arrlen){
 SK_LAYER_TYPE sk_layer_parse_identifier(const char *line){
   if(!line)
     SK_ERROR("Cannot parse null pointer.");
+  else if(!strcmp(line, sk_identity_layer_identifier))
+    return SK_ID;
   else if(!strcmp(line, sk_fc_layer_identifier))
     return SK_FF;
   if(!strcmp(line, sk_lstm_layer_identifier))
@@ -69,6 +72,9 @@ void sk_layer_parse(Layer *l, char *src){
   l->layertype = sk_layer_parse_identifier(first_line);
 
   switch(l->layertype){
+    case SK_ID:
+      sk_identity_layer_parse(l, src);
+      break;
     case SK_FF:
       sk_fc_layer_parse(l, src);
       break;
@@ -89,6 +95,8 @@ void sk_layer_parse(Layer *l, char *src){
 
 void sk_layer_count_params(Layer *l){
   switch(l->layertype){
+    case SK_ID:
+      break;
     case SK_FF:
       sk_fc_layer_count_params(l);
       break;
@@ -114,6 +122,9 @@ void sk_layer_count_params(Layer *l){
 
 void sk_layer_initialize(Layer *l, Tensor p, Tensor g){
   switch(l->layertype){
+    case SK_ID:
+      sk_identity_layer_initialize(l);
+      break;
     case SK_FF:
       sk_fc_layer_initialize(l, p, g);
       break;

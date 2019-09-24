@@ -9,7 +9,7 @@
 typedef enum sk_cost_fn   {SK_QUADRATIC_COST, SK_CROSS_ENTROPY_COST} SK_COST_FN;
 typedef enum sk_logistic  {SK_SIGMOID, SK_TANH, SK_RELU, SK_LINEAR} SK_LOGISTIC;
 typedef enum sk_init_type {SK_XAVIER, SK_HE} SK_INIT_TYPE;
-typedef enum sk_type      {SK_FF, SK_LSTM, SK_SOFTMAX, SK_NTM, SK_GRU, SK_ATT} SK_LAYER_TYPE;
+typedef enum sk_type      {SK_ID, SK_FF, SK_LSTM, SK_SOFTMAX, SK_NTM, SK_GRU, SK_ATT} SK_LAYER_TYPE;
 
 typedef struct layer_{ 
   char  *name;

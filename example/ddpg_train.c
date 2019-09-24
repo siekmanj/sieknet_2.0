@@ -115,6 +115,9 @@ int main(int argc, char **argv){
   DDPG algo = create_ddpg(&n, env.action_space, env.observation_space, 1, 1e4);
   Layer *out = sk_layer_from_name(&n, "action");
 
+  printf("PARAMS AFTER ALGO CREATE\n");
+  tensor_print(algo.target_policy);
+
   if(!out)
     SK_ERROR("Could not find layer with name 'action'");
 
@@ -135,14 +138,8 @@ int main(int argc, char **argv){
        for(int i = 0; i < env.observation_space; i++)
          tensor_raw(state_t)[tensor_get_offset(state_t, i)] = env.state[i];
 
-       
-       printf("BEFORE\n");
-       tensor_print(out->output);
        sk_forward(&n, state_t);
        Tensor action = get_subtensor(out->output, n.t-1);
-
-       printf("AFTER\n");
-       tensor_print(out->output);
 
        for(int i = 0; i < env.action_space; i++)
          action_buff[i] = tensor_at(action, i);
@@ -173,6 +170,7 @@ int main(int argc, char **argv){
       /*
        * Evalulate policy
        */ 
+#if 0
       tensor_copy(algo.target_policy, n.params);
       float reward = 0.0f;
       do {
@@ -191,5 +189,7 @@ int main(int argc, char **argv){
         reward += env.step(env, action_buff);
       }while(!*env.done && n.t < max_traj_len);
       printf("return %f\n", reward);
+      tensor_copy(algo.current_policy, n.params);
+#endif
   }
 }

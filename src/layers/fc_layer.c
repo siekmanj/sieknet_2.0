@@ -46,6 +46,16 @@ void sk_fc_layer_forward(Layer *l, size_t t){
     tensor_transpose(w, 0, 1);
     tensor_mmult(w, x, y);
     tensor_transpose(w, 0, 1);
+#if 0
+    printf("**** LAYER '%s' INPUT '%s' T %lu\n", l->name, in->name, t);
+    printf("\tW:\n");
+    tensor_print(w);
+    printf("\tX (FROM '%s':\n", in->name);
+    tensor_print(x);
+    printf("RESULT FOR '%s':\n", l->name);
+    tensor_print(y);
+    getchar();
+#endif
   }
 	/* Elementwise-add the bias to the output */
   tensor_elementwise_add(d->bias, y, y);
