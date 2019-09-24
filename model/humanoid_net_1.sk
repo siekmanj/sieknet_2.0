@@ -23,3 +23,21 @@ name: action
 input: actor_hidden_2
 logistic: tanh
 size: 17
+
+[fully_connected layer]
+name: critic_hidden_1
+input: action, state_input
+logistic: tanh
+size: 16
+
+[fully_connected layer]
+name: critic_hidden_2
+input: critic_hidden_1
+logistic: tanh
+size: 16
+
+[fully_connected layer]
+name: critic
+input: critic_hidden_2
+logistic: linear
+size: 1

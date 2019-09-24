@@ -13,9 +13,10 @@ static void initialize_network(Network *n){
   data->name             = "DATA_IN";
   data->params_per_input = 0;
   data->output           = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, n->input_dimension);
-  //data->gradient         = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, n->input_dimension);
+  data->gradient         = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, n->input_dimension);
   data->gradient.data = NULL;
   n->data_layer = data;
+
 
   /*
    * Take the current input layer and add our dummy layer
@@ -30,7 +31,7 @@ static void initialize_network(Network *n){
   free(n->input_layer->input_layers);
   n->input_layer->input_layers = new_input_layers;
   n->input_layer->num_input_layers++;
-  
+
   /* Allocate tensor memory and count the number of parameters in the network */
   size_t param_idx = 0;
   size_t const_idx = 0;

@@ -7,7 +7,7 @@ static const char sk_identity_layer_identifier[] = "[identity layer]";
 
 void sk_identity_layer_parse(Layer *, const char *);
 
-void sk_identity_layer_count_params(Layer *);
+void sk_identity_layer_count_size(Layer *);
 
 void sk_identity_layer_initialize(Layer *);
 

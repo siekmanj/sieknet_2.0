@@ -7,17 +7,23 @@
 
 void sk_identity_layer_forward(Layer *l, size_t t){
   Layer *in = l->input_layers[0];
+
+  if(in->rank >= l->rank)
+    SK_ERROR("Cannot have recurrent connection to identity layer (Input rank %d, layer rank %d)", in->rank, l->rank);
+
   tensor_copy(get_subtensor(in->output, t), get_subtensor(l->output, t));
 }
 
 void sk_identity_layer_backward(Layer *l, size_t t){
   Layer *in = l->input_layers[0];
-  //tensor_print(get_subtensor(l->gradient, t));
   if(in->gradient.data)
     tensor_copy(get_subtensor(l->gradient, t), get_subtensor(in->gradient, t));
-  //tensor_print(get_subtensor(in->gradient, t));
-  //printf("????\n");
-  //getchar();
+}
+
+void sk_identity_layer_count_size(Layer *l){
+  l->size = l->input_layers[0]->size;
+  l->num_params = 0;
+  l->num_consts = 0;
 }
 
 void sk_identity_layer_dealloc(Layer *l){
@@ -64,16 +70,15 @@ void sk_identity_layer_parse(Layer *l, char *src){
   l->input_names = input_names;
   l->num_input_layers = num_names;
   l->name = name;
-  l->num_params = 0;
-  l->num_consts = 0;
 }
 
 void sk_identity_layer_initialize(Layer *l){
-  l->size = l->input_layers[0]->size;
+  if(l->num_input_layers > 1)
+    SK_ERROR("Cannot have more than one input layer.\n");
+
   l->output         = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
   l->gradient       = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, l->size);
-
-  l->loutput      = create_tensor(SIEKNET_CPU, l->size);
+  l->loutput        = create_tensor(SIEKNET_CPU, l->size);
 
   l->forward      = sk_identity_layer_forward;
   l->backward     = sk_identity_layer_backward;

@@ -96,6 +96,7 @@ void sk_layer_parse(Layer *l, char *src){
 void sk_layer_count_params(Layer *l){
   switch(l->layertype){
     case SK_ID:
+      sk_identity_layer_count_size(l);
       break;
     case SK_FF:
       sk_fc_layer_count_params(l);
