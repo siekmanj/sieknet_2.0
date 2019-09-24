@@ -107,89 +107,96 @@ int main(int argc, char **argv){
   if(!strcmp(environment_name, "walker2d"))
     env = create_walker2d_env();
 
-
   //TODO LOAD POLICY
   //TODO LOAD ENV
 
   printf("Creating algo!\n");
   DDPG algo = create_ddpg(&n, env.action_space, env.observation_space, 1, 1e4);
-  Layer *out = sk_layer_from_name(&n, "action");
-
-  printf("PARAMS AFTER ALGO CREATE\n");
-  tensor_print(algo.target_policy);
+  Layer *out = sk_layer_from_name(&n, "actor");
 
   if(!out)
     SK_ERROR("Could not find layer with name 'action'");
 
- Tensor state_t = create_tensor(SIEKNET_CPU, env.observation_space);
- float action_buff[env.action_space];
+  Tensor state_t = create_tensor(SIEKNET_CPU, env.observation_space);
+  Tensor next_state = create_tensor(SIEKNET_CPU, env.observation_space);
+  float action_buff[env.action_space];
 
   while(1){
     /*
-     * Gather samples for this iteration
+     * Gather samples for this iteration.
      */
-     env.reset(env);
-     env.seed(env);
-     n.t = 0;
-     do {
-       memset(action_buff, '\0', sizeof(float)*env.action_space);
-       tensor_fill(state_t, 0.0f);
+    env.reset(env);
+    env.seed(env);
+    n.t = 0;
+    tensor_copy(algo.current_policy, n.params);
+    do {
+      memset(action_buff, '\0', sizeof(float)*env.action_space);
+      tensor_fill(state_t, 0.0f);
 
-       for(int i = 0; i < env.observation_space; i++)
-         tensor_raw(state_t)[tensor_get_offset(state_t, i)] = env.state[i];
+      for(int i = 0; i < env.observation_space; i++)
+        tensor_raw(state_t)[tensor_get_offset(state_t, i)] = env.state[i];
 
-       sk_forward(&n, state_t);
-       Tensor action = get_subtensor(out->output, n.t-1);
+      sk_forward(&n, state_t);
+      Tensor action = get_subtensor(out->output, n.t-1);
 
-       for(int i = 0; i < env.action_space; i++)
-         action_buff[i] = tensor_at(action, i);
+      for(int i = 0; i < env.action_space; i++)
+        action_buff[i] = tensor_at(action, i);
 
-       float r = env.step(env, action_buff);
-       
-       ddpg_append_transition(&algo, state_t, action, r, *env.done);
+      float r = env.step(env, action_buff);
 
-     } while(!*env.done && n.t < max_traj_len);
+      if(!*env.done){
+        for(int i = 0; i < env.observation_space; i++)
+          tensor_raw(next_state)[tensor_get_offset(state_t, i)] = env.state[i];
+      }else
+        tensor_fill(next_state, 0.0f);
+      
+      /*
+       * Append this transition to the replay buffer.
+       */
+      ddpg_append_transition(&algo, state_t, action, next_state, r, *env.done);
+
+    } while(!*env.done && n.t < max_traj_len);
 
 #if 0
-     printf("******************************\nstate of buffer:\n");
-     for(int i = 0; i < algo.n; i++){
-       printf("\tPOS %d:\n", i);
-       tensor_print(algo.transitions[i].state);
-       tensor_print(algo.transitions[i].action);
-       printf("REWARD %f\n", algo.transitions[i].reward);
-       printf("TERMINAL %d\n", algo.transitions[i].terminal);
-     }
-     getchar();
+    printf("******************************\nstate of buffer:\n");
+    for(int i = 0; i < algo.n; i++){
+      printf("\tPOS %d:\n", i);
+      tensor_print(algo.replay_buffer[i].state);
+      tensor_print(algo.replay_buffer[i].action);
+      printf("REWARD %f\n", algo.replay_buffer[i].reward);
+      printf("TERMINAL %d\n", algo.replay_buffer[i].terminal);
+    }
+    getchar();
 #endif
 
-     /*
-      * Update policy here
-      */
-      ddpg_update_policy(algo);
+/*
+ * Update policy here
+ */
+  printf("Updating policy.\n");
+  ddpg_update_policy(algo);
 
-      /*
-       * Evalulate policy
-       */ 
-#if 0
-      tensor_copy(algo.target_policy, n.params);
-      float reward = 0.0f;
-      do {
-        memset(action_buff, '\0', sizeof(float)*env.action_space);
-        tensor_fill(state_t, 0.0f);
+ /*
+  * Evalulate policy
+  */ 
+#if 1
+  tensor_copy(algo.target_policy, n.params);
+  float reward = 0.0f;
+  do {
+   memset(action_buff, '\0', sizeof(float)*env.action_space);
+   tensor_fill(state_t, 0.0f);
 
-        for(int i = 0; i < env.observation_space; i++)
-          tensor_raw(state_t)[tensor_get_offset(state_t, i)] = env.state[i];
- 
-        sk_forward(&n, state_t);
-        Tensor action = get_subtensor(out->output, n.t-1);
- 
-        for(int i = 0; i < env.action_space; i++)
-          action_buff[i] = tensor_at(action, i);
- 
-        reward += env.step(env, action_buff);
-      }while(!*env.done && n.t < max_traj_len);
-      printf("return %f\n", reward);
-      tensor_copy(algo.current_policy, n.params);
+   for(int i = 0; i < env.observation_space; i++)
+     tensor_raw(state_t)[tensor_get_offset(state_t, i)] = env.state[i];
+
+   sk_forward(&n, state_t);
+   Tensor action = get_subtensor(out->output, n.t-1);
+
+   for(int i = 0; i < env.action_space; i++)
+     action_buff[i] = tensor_at(action, i);
+
+   reward += env.step(env, action_buff);
+  }while(!*env.done && n.t < max_traj_len);
+  printf("return %f\n", reward);
 #endif
   }
 }

@@ -4,19 +4,23 @@
 
 typedef struct transition_{
   Tensor state;
+  Tensor next_state;
   Tensor action;
   float reward;
-  //struct transition_ *parent;
   int terminal;
 } Transition;
 
 typedef struct ddpg_{
-  Transition *transitions;
+  Transition *replay_buffer;
   Network *policy;
 
   Tensor policy_gradient;
   Tensor target_policy;
   Tensor current_policy;
+
+  Tensor _q_buffer;
+
+  float discount;
 
   size_t minibatch_size;
   size_t num_timesteps;
@@ -28,5 +32,5 @@ typedef struct ddpg_{
 
 DDPG create_ddpg(Network *, size_t, size_t, size_t, size_t);
 
-void ddpg_append_transition(DDPG *, Tensor, Tensor, float, int);
+void ddpg_append_transition(DDPG *, Tensor, Tensor, Tensor, float, int);
 void ddpg_update_policy(DDPG);

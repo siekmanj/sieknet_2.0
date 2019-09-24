@@ -19,14 +19,14 @@ size: 16
 logistic: tanh
 
 [fully_connected layer]
-name: action
+name: actor
 input: actor_hidden_2
 logistic: tanh
 size: 17
 
 [fully_connected layer]
 name: critic_hidden_1
-input: action, state_input
+input: actor, state_input
 logistic: tanh
 size: 16
 
