@@ -280,8 +280,11 @@ void sk_run_subgraph_backward(Network *n, int start_rank, int end_rank){
 
   for(int i = end_idx; i >= start_idx; i--){
     n->layers[i]->backward(n->layers[i], n->t);
-    tensor_fill(get_subtensor(n->layers[i]->gradient, n->t), 0.0f);
   }
+
+  // Zero gradients of entire graph
+  for(int i = 0; i < n->depth; i++)
+    tensor_fill(get_subtensor(n->layers[i]->gradient, n->t), 0.0f);
 }
 
 #if 0

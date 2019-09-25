@@ -18,45 +18,89 @@ void ddpg_update_policy(DDPG d){
   if(!critic)
     SK_ERROR("Unable to find layer with name 'critic'");
 
-  Layer *actor= sk_layer_from_name(d.policy, "actor");
+  Layer *actor = sk_layer_from_name(d.policy, "actor");
   if(!actor)
     SK_ERROR("Unable to find layer with name 'actor'");
+
+  Layer *state = sk_layer_from_name(d.policy, "state");
+  if(!state)
+    SK_ERROR("Unable to find layer with name 'state'");
 
   /*
    * Compute the target Q values.
    */
-  tensor_copy(d.target_policy, d.policy->params);
-
   d.policy->t = 0;
+
   Tensor target_q = d._q_buffer;
   target_q.dims[0] = d.minibatch_size;
-
-  printf("BEFORE:\n");
   tensor_fill(target_q, 0.0f);
-  tensor_print(target_q);
+
+  tensor_copy(d.target_policy, d.policy->params); // Copy target parameters to policy
   for(int i = 0; i < d.minibatch_size; i++){
     if(!minibatch[i].terminal){
       sk_forward(d.policy, minibatch[i].next_state);
-      float critic_q = tensor_at(critic->output, i);
+      float critic_q = tensor_at(critic->output, i); // Get the critic value
 
       tensor_raw(target_q)[tensor_get_offset(target_q, i)] = minibatch[i].reward + d.discount * critic_q;
     }else
       tensor_raw(target_q)[tensor_get_offset(target_q, i)] = minibatch[i].reward;
-
-    tensor_print(target_q);
-    //tensor_print(critic->output);
   }
 
-  printf("AFTER:\n");
-  tensor_print(target_q);
-  getchar();
   /*
-   *
+   * Compute the current Q values.
    */
+  d.policy->t = 0;
+  tensor_copy(d.current_policy, d.policy->params); // Copy current parameters to policy
+  for(int i = 0; i < d.minibatch_size; i++){
+    tensor_copy(minibatch[i].action, get_subtensor(actor->output, i));
+    tensor_copy(minibatch[i].state, get_subtensor(state->output, i));
+
+    sk_run_subgraph_forward(d.policy, actor->rank+1, critic->rank); // Run only the critic
+  }
 
   /*
-   *
+   * Compute the critic loss.
    */
+  float critic_cost = sk_cost(critic, target_q, SK_QUADRATIC_COST);
+
+  /*
+   * Run the backward pass for the critic.
+   */
+  for(int i = 0; i < d.minibatch_size; i++)
+    sk_run_subgraph_backward(d.policy, actor->rank+1, critic->rank);
+  tensor_scalar_mul(d.policy->param_grad, 1.0f / d.minibatch_size); // Divide by N for mean
+
+  /*
+   * Update critic parameters TODO
+   */
+  //d.optimizer.step(d.optimizer);
+
+  /*
+   * Compute the actor loss.
+   */
+  for(int i = 0; i < d.policy->depth; i++){ // Stop critic layers from calculating param grads
+    if(d.policy->layers[i]->rank > actor->rank){
+      d.policy->layers[i]->frozen = 1;
+    }
+  }
+
+  for(int i = 0; i < d.minibatch_size; i++) // Run forward pass through entire network
+    sk_forward(d.policy, minibatch[i].state);
+  
+  tensor_fill(critic->gradient, -1.0f);
+  sk_backward(d.policy);
+  tensor_print(d.policy->param_grad);
+
+  for(int i = 0; i < d.policy->depth; i++) // Unfreeze all layers
+    d.policy->layers[i]->frozen = 0;
+
+  /*
+   * Update target networks TODO
+   */
+
+  //tensor_print(d.policy->param_grad);
+  printf("Critic cost is %f!\n", critic_cost / d.minibatch_size);
+  getchar();
 }
 
 void ddpg_append_transition(DDPG *d, Tensor state, Tensor action, Tensor next_state, float reward, int terminal){
