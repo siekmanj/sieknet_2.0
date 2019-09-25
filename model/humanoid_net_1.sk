@@ -1,14 +1,14 @@
 [network]
 name: humanoid_actor_critic
 input_dimension: 45
-input: state_input
+input: state
 
 [identity layer]
-name: state_input
+name: state
 
 [fully_connected layer]
 name: actor_hidden_1
-input: state_input
+input: state
 size: 16
 logistic: tanh
 
@@ -26,7 +26,7 @@ size: 17
 
 [fully_connected layer]
 name: critic_hidden_1
-input: actor, state_input
+input: actor, state
 logistic: tanh
 size: 16
 

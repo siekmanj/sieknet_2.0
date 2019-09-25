@@ -23,11 +23,10 @@ int main(int argc, char **argv){
   size_t num_threads = 1;
   size_t num_iterations = 100;
   size_t random_seed = time(NULL);
-  size_t num_deltas = 10;
   size_t timesteps = 1e5;
 
   float step_size = 0.02f;
-  float std_dev = 0.0075f;
+  float gamma = 0.99;
 
   size_t max_traj_len = 400;
 
@@ -61,7 +60,7 @@ int main(int argc, char **argv){
       if(!strcmp(long_options[opt_idx].name, "threads"))   num_threads = strtol(optarg, NULL, 10);
       if(!strcmp(long_options[opt_idx].name, "seed"))      random_seed = strtol(optarg, NULL, 10);
       if(!strcmp(long_options[opt_idx].name, "step_size")) step_size = strtof(optarg, NULL);
-      if(!strcmp(long_options[opt_idx].name, "gamma"))     num_deltas = strtol(optarg, NULL, 10);
+      if(!strcmp(long_options[opt_idx].name, "gamma"))     gamma = strtol(optarg, NULL, 10);
       if(!strcmp(long_options[opt_idx].name, "timesteps")) timesteps = (size_t)strtof(optarg, NULL);
       if(!strcmp(long_options[opt_idx].name, "traj_len"))  max_traj_len = strtol(optarg, NULL, 10);
       args_read++;
@@ -112,6 +111,8 @@ int main(int argc, char **argv){
 
   printf("Creating algo!\n");
   DDPG algo = create_ddpg(&n, env.action_space, env.observation_space, 1, 1e4);
+  algo.discount = gamma;
+
   Layer *out = sk_layer_from_name(&n, "actor");
 
   if(!out)

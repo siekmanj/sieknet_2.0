@@ -100,6 +100,9 @@ void   sk_backward(Network *);
 void   sk_wipe(Network *);
 void   sk_dealloc(Network *);
 
+void sk_run_subgraph_forward(Network *, int, int end_rank);
+void sk_run_subgraph_backward(Network *, int, int end_rank);
+
 void sk_layer_parse(Layer *, char *);
 void sk_layer_count_params(Layer *);
 void sk_layer_initialize(Layer *, Tensor, Tensor);

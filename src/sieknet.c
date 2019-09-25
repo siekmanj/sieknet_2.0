@@ -140,7 +140,39 @@ void sk_save(Network *n, const char *filename){
   fclose(fp);
 }
 
+void sk_run_subgraph_forward(Network *n, int start_rank, int end_rank){
+  /* 
+   * Run the forward pass for each individual layer.
+   */
+  int start_idx = 0;
+  while(n->layers[start_idx]->rank < start_rank)
+    start_idx++;
+
+  int end_idx = start_idx;
+  while(n->layers[end_idx]->rank < end_rank)
+    end_idx++;
+
+  //printf("Found layer with rank %d (%s), desired start %d\n", n->layers[start_idx]->rank, n->layers[start_idx]->name, start_rank);
+  for(int i = start_idx; i <= end_idx; i++){
+    n->layers[i]->output.dims[0]   = n->t + 1; // Increase the time dimension of this layer's output
+    n->layers[i]->gradient.dims[0] = n->t + 1;
+    n->layers[i]->forward(n->layers[i], n->t);       // Run the forward pass for this layer
+    //printf("Forward pass for layer '%s'\n", n->layers[i]->name);
+  }
+
+  /* 
+   * The below is a hack and is not guaranteed to work for transposed tensors - fix tensor_copy asap
+   */ 
+  for(int i = start_idx; i <= end_idx; i++){
+    Tensor o = get_subtensor(n->layers[i]->output, n->t);
+    tensor_copy(o, n->layers[i]->loutput);
+  }
+  n->t = n->trainable ? n->t + 1 : 0;     // If the network is in trainable mode, increment t.
+  //printf("Done\n");
+}
+
 static void sk_run_inference(Network *n, Tensor x){
+
   /*
    * Copy the input into the data layer's storage 
    */
@@ -151,20 +183,7 @@ static void sk_run_inference(Network *n, Tensor x){
    * Run the forward pass for each individual layer.
    */
   n->data_layer->output.dims[0] = n->t + 1;
-  for(int i = 0; i < n->depth; i++){
-    n->layers[i]->output.dims[0]   = n->t + 1; // Increase the time dimension of this layer's output
-    n->layers[i]->gradient.dims[0] = n->t + 1;
-    n->layers[i]->forward(n->layers[i], n->t);       // Run the forward pass for this layer
-  }
-
-  /* 
-   * The below is a hack and is not guaranteed to work for transposed tensors - fix tensor_copy asap
-   */ 
-  for(int i = 0; i < n->depth; i++){
-    Tensor o = get_subtensor(n->layers[i]->output, n->t);
-    tensor_copy(o, n->layers[i]->loutput);
-  }
-  n->t = n->trainable ? n->t + 1 : 0;     // If the network is in trainable mode, increment t.
+  sk_run_subgraph_forward(n, 0, n->layers[n->depth-1]->rank);
 }
 
 static void sk_run_sequence_inference(Network *n, Tensor x){
@@ -247,16 +266,37 @@ double sk_cost(Layer *l, Tensor y, SK_COST_FN cost){
   return -1;
 }
 
-static void sk_backward_pass(Network *n, int t){
+void sk_run_subgraph_backward(Network *n, int start_rank, int end_rank){
+  if(n->t)
+    n->t--;
+
+  int start_idx = 0;
+  while(n->layers[start_idx]->rank < start_rank)
+    start_idx++;
+
+  int end_idx = start_idx;
+  while(n->layers[end_idx]->rank < end_rank)
+    end_idx++;
+
+  for(int i = end_idx; i >= start_idx; i--){
+    n->layers[i]->backward(n->layers[i], n->t);
+    tensor_fill(get_subtensor(n->layers[i]->gradient, n->t), 0.0f);
+  }
+}
+
+#if 0
+static void sk_backward_pass(Network *n){
   for(int i = n->depth-1; i >= 0; i--){
     n->layers[i]->backward(n->layers[i], t);
     tensor_fill(get_subtensor(n->layers[i]->gradient, t), 0.0f);
   }
 }
+#endif
 
 void sk_backward(Network *n){
   for(int t = n->t-1; t >= 0; t--){
-    sk_backward_pass(n, t);
+    //sk_backward_pass(n, t);
+    sk_run_subgraph_backward(n, 0, n->layers[n->depth-1]->rank);
   }
   n->t = 0;
 }
