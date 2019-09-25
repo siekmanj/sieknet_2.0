@@ -1,4 +1,6 @@
 #include <stdio.h>
+
+#include <optimizer.h>
 #include <tensor.h>
 #include <sieknet.h>
 
@@ -21,6 +23,8 @@ typedef struct ddpg_{
   Tensor _q_buffer;
 
   float discount;
+  float tau;
+  float lr;
 
   size_t minibatch_size;
   size_t num_timesteps;
@@ -28,6 +32,8 @@ typedef struct ddpg_{
 
   void (*sample)(struct ddpg_);
   void (*update_policy)(struct ddpg_);
+
+  Optimizer optimizer;
 } DDPG;
 
 DDPG create_ddpg(Network *, size_t, size_t, size_t, size_t);

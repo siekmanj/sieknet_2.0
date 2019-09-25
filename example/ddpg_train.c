@@ -23,7 +23,7 @@ int main(int argc, char **argv){
   size_t num_threads = 1;
   size_t num_iterations = 100;
   size_t random_seed = time(NULL);
-  size_t timesteps = 1e5;
+  size_t timesteps = 1e7;
 
   float step_size = 0.02f;
   float gamma = 0.99;
@@ -110,8 +110,11 @@ int main(int argc, char **argv){
   //TODO LOAD ENV
 
   printf("Creating algo!\n");
-  DDPG algo = create_ddpg(&n, env.action_space, env.observation_space, 1, 1e4);
+  DDPG algo = create_ddpg(&n, env.action_space, env.observation_space, 1, 1e7);
   algo.discount = gamma;
+  algo.minibatch_size = 500;
+
+  size_t reset_every = 50;
 
   Layer *out = sk_layer_from_name(&n, "actor");
 
@@ -121,8 +124,14 @@ int main(int argc, char **argv){
   Tensor state_t = create_tensor(SIEKNET_CPU, env.observation_space);
   Tensor next_state = create_tensor(SIEKNET_CPU, env.observation_space);
   float action_buff[env.action_space];
-
+  size_t iter = 0;
+  float avg_return = 0;
   while(1){
+    size_t start = clock_us();
+    if(!(iter % reset_every)){
+      avg_return = 0;
+      printf("\n");
+    }
     /*
      * Gather samples for this iteration.
      */
@@ -170,34 +179,40 @@ int main(int argc, char **argv){
     getchar();
 #endif
 
-/*
- * Update policy here
- */
-  printf("Updating policy.\n");
-  ddpg_update_policy(algo);
+  /*
+   * Update policy here
+   */
+    //printf("Updating policy.\n");
+    ddpg_update_policy(algo);
 
- /*
-  * Evalulate policy
-  */ 
+   /*
+    * Evalulate policy
+    */ 
 #if 1
-  tensor_copy(algo.target_policy, n.params);
-  float reward = 0.0f;
-  do {
-   memset(action_buff, '\0', sizeof(float)*env.action_space);
-   tensor_fill(state_t, 0.0f);
+    tensor_copy(algo.target_policy, n.params);
+    float reward = 0.0f;
+    do {
+     memset(action_buff, '\0', sizeof(float)*env.action_space);
+     tensor_fill(state_t, 0.0f);
 
-   for(int i = 0; i < env.observation_space; i++)
-     tensor_raw(state_t)[tensor_get_offset(state_t, i)] = env.state[i];
+     for(int i = 0; i < env.observation_space; i++)
+       tensor_raw(state_t)[tensor_get_offset(state_t, i)] = env.state[i];
 
-   sk_forward(&n, state_t);
-   Tensor action = get_subtensor(out->output, n.t-1);
+     sk_forward(&n, state_t);
+     Tensor action = get_subtensor(out->output, n.t-1);
 
-   for(int i = 0; i < env.action_space; i++)
-     action_buff[i] = tensor_at(action, i);
+     for(int i = 0; i < env.action_space; i++)
+       action_buff[i] = tensor_at(action, i);
 
-   reward += env.step(env, action_buff);
-  }while(!*env.done && n.t < max_traj_len);
-  printf("return %f\n", reward);
+     reward += env.step(env, action_buff);
+    }while(!*env.done && n.t < max_traj_len);
+    //printf("return %f\n", reward);
 #endif
+    avg_return += reward;
+
+    float batch_avg = avg_return / ((iter % reset_every) + 1);
+    double elapsed = (clock_us() - start)/1e6;
+    printf("Iteration %lu took %3.2fs | avg return over last %lu iterations %f\t\r", iter+1, elapsed, (iter % reset_every) + 1, batch_avg);
+    iter++;
   }
 }

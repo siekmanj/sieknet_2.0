@@ -5,7 +5,6 @@
 #include <tensor.h>
 #include <parser.h>
 
-
 typedef struct fc_data_{
   Tensor bias;
   Tensor *weights;
@@ -24,7 +23,6 @@ void sk_fc_layer_forward(Layer *l, size_t t){
   FC_layer_data *d = (FC_layer_data*)l->data;
 
   Tensor y = get_subtensor(l->output, t);
-  //Tensor dy = get_subtensor(d->intermediate_grad, t);
   Tensor dy = get_subtensor(d->activation_grad, t);
 
   d->intermediate_grad.dims[0] = t + 1;
@@ -46,16 +44,6 @@ void sk_fc_layer_forward(Layer *l, size_t t){
     tensor_transpose(w, 0, 1);
     tensor_mmult(w, x, y);
     tensor_transpose(w, 0, 1);
-#if 0
-    printf("**** LAYER '%s' INPUT '%s' T %lu\n", l->name, in->name, t);
-    printf("\tW:\n");
-    tensor_print(w);
-    printf("\tX (FROM '%s':\n", in->name);
-    tensor_print(x);
-    printf("RESULT FOR '%s':\n", l->name);
-    tensor_print(y);
-    getchar();
-#endif
   }
 	/* Elementwise-add the bias to the output */
   tensor_elementwise_add(d->bias, y, y);
@@ -99,18 +87,15 @@ void sk_fc_layer_backward(Layer *l, size_t t){
       tensor_mmult(x, g, dw); // dW = x * g
 
     /* Compute input gradients if needed */
-    if(!l->blocking && dx.data){
+    if(!l->blocking && dx.data)
       tensor_mmult(w, g, dx); // dX = g * w
-      //printf("('%s') computing input grad for '%s'\n", l->name, in->name);
-      //tensor_print(dx);
-    }
-
-
   }
 
   /* Compute bias gradients */
-  Tensor db = d->bias_grad;
-  tensor_elementwise_add(g, db, db);
+  if(!l->frozen){
+    Tensor db = d->bias_grad;
+    tensor_elementwise_add(g, db, db);
+  }
 }
 
 void sk_fc_layer_dealloc(Layer *l){

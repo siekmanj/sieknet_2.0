@@ -71,9 +71,9 @@ void ddpg_update_policy(DDPG d){
   tensor_scalar_mul(d.policy->param_grad, 1.0f / d.minibatch_size); // Divide by N for mean
 
   /*
-   * Update critic parameters TODO
+   * Update critic parameters.
    */
-  //d.optimizer.step(d.optimizer);
+  d.optimizer.step(d.optimizer);
 
   /*
    * Compute the actor loss.
@@ -84,23 +84,31 @@ void ddpg_update_policy(DDPG d){
     }
   }
 
+  /*
+   * Run the backward pass for the actor.
+   */
   for(int i = 0; i < d.minibatch_size; i++) // Run forward pass through entire network
     sk_forward(d.policy, minibatch[i].state);
   
-  tensor_fill(critic->gradient, -1.0f);
+  tensor_fill(critic->gradient, -1.0f); // Gradient ascent on critic
   sk_backward(d.policy);
-  tensor_print(d.policy->param_grad);
 
   for(int i = 0; i < d.policy->depth; i++) // Unfreeze all layers
     d.policy->layers[i]->frozen = 0;
 
   /*
-   * Update target networks TODO
+   * Update actor parameters
    */
+  d.optimizer.step(d.optimizer);
 
-  //tensor_print(d.policy->param_grad);
-  printf("Critic cost is %f!\n", critic_cost / d.minibatch_size);
-  getchar();
+  /*
+   * Update target policy
+   */
+   tensor_scalar_mul(d.current_policy, 1 - d.tau); // (temporarily) multiply current parameters by 1-tau
+   tensor_elementwise_add(d.target_policy, d.current_policy, d.target_policy); // Add these parameters to the target policy
+   tensor_scalar_mul(d.current_policy, 1/(1 - d.tau)); // undo the 1-tau multiplication
+
+  //printf("Critic cost is %f!\n", critic_cost / d.minibatch_size);
 }
 
 void ddpg_append_transition(DDPG *d, Tensor state, Tensor action, Tensor next_state, float reward, int terminal){
@@ -115,21 +123,21 @@ void ddpg_append_transition(DDPG *d, Tensor state, Tensor action, Tensor next_st
     SK_ERROR("TODO: Handle this case.\n");
 }
 
-DDPG create_ddpg(Network *networks, size_t action_space, size_t state_space, size_t num_threads, size_t num_timesteps){
+DDPG create_ddpg(Network *policy, size_t action_space, size_t state_space, size_t num_threads, size_t num_timesteps){
   DDPG d = {0};
 
-  if(networks[0].is_recurrent)
+  if(policy[0].is_recurrent)
     SK_ERROR("DDPG only works with ff policies.");
 
-  d.policy = networks;
-  d.policy_gradient = tensor_clone(SIEKNET_CPU, networks[0].param_grad);
-  d.target_policy   = tensor_clone(SIEKNET_CPU, networks[0].params);
-  d.current_policy  = tensor_clone(SIEKNET_CPU, networks[0].params);
+  d.policy = policy;
+  d.policy_gradient = tensor_clone(SIEKNET_CPU, policy[0].param_grad);
+  d.target_policy   = tensor_clone(SIEKNET_CPU, policy[0].params);
+  d.current_policy  = tensor_clone(SIEKNET_CPU, policy[0].params);
 
   d._q_buffer = create_tensor(SIEKNET_CPU, SIEKNET_MAX_UNROLL_LENGTH, 1);
 
-  if(!networks)
-    SK_ERROR("Received null ptr for networks.");
+  if(!policy)
+    SK_ERROR("Received null ptr for policy.");
 
   d.replay_buffer = (Transition *)malloc(sizeof(Transition) * num_timesteps);
   for(int i = 0; i < num_timesteps; i++){
@@ -143,7 +151,12 @@ DDPG create_ddpg(Network *networks, size_t action_space, size_t state_space, siz
   d.n = 0;
   d.minibatch_size = 4;
   d.num_timesteps = num_timesteps;
+
   d.discount = 0.99;
+  d.tau      = 0.95;
+  d.lr       = 1e-4;
+
+  d.optimizer = create_optimizer(d.policy->params, d.policy->param_grad, SK_SGD);
 
   return  d;
 }
