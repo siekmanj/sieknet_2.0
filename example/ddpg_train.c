@@ -20,15 +20,17 @@ int main(int argc, char **argv){
   char *weight_path      = NULL;
   char *environment_name = NULL;
   
-  size_t num_threads = 1;
-  size_t num_iterations = 100;
-  size_t random_seed = time(NULL);
-  size_t timesteps = 1e7;
+  size_t num_threads       = 1;
+  size_t num_iterations    = 100;
+  size_t random_seed       = time(NULL);
+  size_t timesteps         = 1e7;
+  size_t minibatch_size    = 128;
+  size_t rollouts_per_iter = 256;
+  size_t max_traj_len      = 400;
 
-  float step_size = 0.02f;
+  float tau = 1e-3;
   float gamma = 0.99;
-
-  size_t max_traj_len = 400;
+  float step_size = 1e-4;
 
   setbuf(stdout, NULL);
   setlocale(LC_ALL,"");
@@ -44,7 +46,6 @@ int main(int argc, char **argv){
       {"env",             required_argument, 0,  0},
       {"threads",         required_argument, 0,  0},
       {"seed",            required_argument, 0,  0},
-      {"step_size",       required_argument, 0,  0},
       {"gamma",           required_argument, 0,  0},
       {"timesteps",       required_argument, 0,  0},
       {"traj_len",        required_argument, 0,  0},
@@ -59,8 +60,9 @@ int main(int argc, char **argv){
       if(!strcmp(long_options[opt_idx].name, "env"))       environment_name = optarg;
       if(!strcmp(long_options[opt_idx].name, "threads"))   num_threads = strtol(optarg, NULL, 10);
       if(!strcmp(long_options[opt_idx].name, "seed"))      random_seed = strtol(optarg, NULL, 10);
-      if(!strcmp(long_options[opt_idx].name, "step_size")) step_size = strtof(optarg, NULL);
-      if(!strcmp(long_options[opt_idx].name, "gamma"))     gamma = strtol(optarg, NULL, 10);
+      if(!strcmp(long_options[opt_idx].name, "gamma"))     gamma = strtof(optarg, NULL);
+      if(!strcmp(long_options[opt_idx].name, "tau"))       tau = strtof(optarg, NULL);
+      if(!strcmp(long_options[opt_idx].name, "lr"))        step_size = strtof(optarg, NULL);
       if(!strcmp(long_options[opt_idx].name, "timesteps")) timesteps = (size_t)strtof(optarg, NULL);
       if(!strcmp(long_options[opt_idx].name, "traj_len"))  max_traj_len = strtol(optarg, NULL, 10);
       args_read++;
@@ -106,20 +108,35 @@ int main(int argc, char **argv){
   if(!strcmp(environment_name, "walker2d"))
     env = create_walker2d_env();
 
-  //TODO LOAD POLICY
-  //TODO LOAD ENV
+  printf("\n   _____ ____________ __ _   ______________  \n");
+  printf("  / ___//  _/ ____/ //_// | / / ____/_	__/  \n");
+  printf("  \\__ \\ / // __/ / ,<  /  |/ / __/   / /   \n");
+  printf(" ___/ // // /___/ /| |/ /|  / /___  / /      \n");
+  printf("/____/___/_____/_/ |_/_/ |_/_____/ /_/	     \n");
+  printf("																					   \n");
+  printf("Deep Deterministic Policy Gradients for reinforcement learning demo\n\n");
+  printf("Environment:  '%s'\n", environment_name);
+  printf("Policy:       '%s'\n", model_path);
+  printf("Iterations:    %'lu\n", num_iterations);
+  printf("Threads:       %lu\n", num_threads);
+  printf("Random seed:   %lu\n", random_seed);
+  printf("Learning rate: %g\n", step_size);
+  printf("Tau:           %g\n", tau);
+  printf("Discount:      %g\n", gamma);
+  printf("Timesteps:     %'lu\n", timesteps);
+  printf("\n");
 
   printf("Creating algo!\n");
-  DDPG algo = create_ddpg(&n, env.action_space, env.observation_space, 1, 1e7);
+  DDPG algo = create_ddpg(&n, env.action_space, env.observation_space, 1, timesteps);
   algo.discount = gamma;
-  algo.minibatch_size = 500;
+  algo.minibatch_size = minibatch_size;
 
   size_t reset_every = 50;
 
   Layer *out = sk_layer_from_name(&n, "actor");
 
   if(!out)
-    SK_ERROR("Could not find layer with name 'action'");
+    SK_ERROR("Could not find layer with name 'actor'");
 
   Tensor state_t = create_tensor(SIEKNET_CPU, env.observation_space);
   Tensor next_state = create_tensor(SIEKNET_CPU, env.observation_space);
@@ -135,62 +152,50 @@ int main(int argc, char **argv){
     /*
      * Gather samples for this iteration.
      */
-    env.reset(env);
-    env.seed(env);
-    n.t = 0;
     tensor_copy(algo.current_policy, n.params);
-    do {
-      memset(action_buff, '\0', sizeof(float)*env.action_space);
-      tensor_fill(state_t, 0.0f);
+    for(int traj = 0; traj < rollouts_per_iter; traj++){
+      env.reset(env);
+      env.seed(env);
+      n.t = 0;
+      do {
+        memset(action_buff, '\0', sizeof(float)*env.action_space);
+        tensor_fill(state_t, 0.0f);
 
-      for(int i = 0; i < env.observation_space; i++)
-        tensor_raw(state_t)[tensor_get_offset(state_t, i)] = env.state[i];
-
-      sk_forward(&n, state_t);
-      Tensor action = get_subtensor(out->output, n.t-1);
-
-      for(int i = 0; i < env.action_space; i++)
-        action_buff[i] = tensor_at(action, i);
-
-      float r = env.step(env, action_buff);
-
-      if(!*env.done){
         for(int i = 0; i < env.observation_space; i++)
-          tensor_raw(next_state)[tensor_get_offset(state_t, i)] = env.state[i];
-      }else
-        tensor_fill(next_state, 0.0f);
-      
-      /*
-       * Append this transition to the replay buffer.
-       */
-      ddpg_append_transition(&algo, state_t, action, next_state, r, *env.done);
+          tensor_raw(state_t)[tensor_get_offset(state_t, i)] = env.state[i];
 
-    } while(!*env.done && n.t < max_traj_len);
+        sk_forward(&n, state_t);
+        Tensor action = get_subtensor(out->output, n.t-1);
 
-#if 0
-    printf("******************************\nstate of buffer:\n");
-    for(int i = 0; i < algo.n; i++){
-      printf("\tPOS %d:\n", i);
-      tensor_print(algo.replay_buffer[i].state);
-      tensor_print(algo.replay_buffer[i].action);
-      printf("REWARD %f\n", algo.replay_buffer[i].reward);
-      printf("TERMINAL %d\n", algo.replay_buffer[i].terminal);
+        for(int i = 0; i < env.action_space; i++)
+          action_buff[i] = tensor_at(action, i);
+
+        float r = env.step(env, action_buff);
+
+        if(!*env.done){
+          for(int i = 0; i < env.observation_space; i++)
+            tensor_raw(next_state)[tensor_get_offset(state_t, i)] = env.state[i];
+        }else
+          tensor_fill(next_state, 0.0f);
+        
+        /*
+         * Append this transition to the replay buffer.
+         */
+        ddpg_append_transition(&algo, state_t, action, next_state, r, *env.done);
+
+      } while(!*env.done && n.t < max_traj_len);
     }
-    getchar();
-#endif
 
-  /*
-   * Update policy here
-   */
-    //printf("Updating policy.\n");
     ddpg_update_policy(algo);
 
    /*
     * Evalulate policy
     */ 
-#if 1
     tensor_copy(algo.target_policy, n.params);
     float reward = 0.0f;
+    n.t = 0;
+    env.reset(env);
+    env.seed(env);
     do {
      memset(action_buff, '\0', sizeof(float)*env.action_space);
      tensor_fill(state_t, 0.0f);
@@ -205,14 +210,38 @@ int main(int argc, char **argv){
        action_buff[i] = tensor_at(action, i);
 
      reward += env.step(env, action_buff);
+
     }while(!*env.done && n.t < max_traj_len);
-    //printf("return %f\n", reward);
-#endif
     avg_return += reward;
 
     float batch_avg = avg_return / ((iter % reset_every) + 1);
     double elapsed = (clock_us() - start)/1e6;
     printf("Iteration %lu took %3.2fs | avg return over last %lu iterations %f\t\r", iter+1, elapsed, (iter % reset_every) + 1, batch_avg);
     iter++;
+  }
+
+  tensor_copy(algo.target_policy, n.params);
+  while(1){
+    n.t = 0;
+    env.reset(env);
+    env.seed(env);
+    do {
+     memset(action_buff, '\0', sizeof(float)*env.action_space);
+     tensor_fill(state_t, 0.0f);
+
+     for(int i = 0; i < env.observation_space; i++)
+       tensor_raw(state_t)[tensor_get_offset(state_t, i)] = env.state[i];
+
+     sk_forward(&n, state_t);
+     Tensor action = get_subtensor(out->output, n.t-1);
+
+     for(int i = 0; i < env.action_space; i++)
+       action_buff[i] = tensor_at(action, i);
+
+     env.step(env, action_buff);
+
+     env.render(env);
+
+    }while(!*env.done && n.t < max_traj_len);
   }
 }

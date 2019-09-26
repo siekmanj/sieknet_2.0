@@ -73,6 +73,7 @@ void ddpg_update_policy(DDPG d){
   /*
    * Update critic parameters.
    */
+  d.optimizer.lr = d.lr;
   d.optimizer.step(d.optimizer);
 
   /*
@@ -101,26 +102,31 @@ void ddpg_update_policy(DDPG d){
    */
   d.optimizer.step(d.optimizer);
 
+  tensor_copy(d.policy->params, d.current_policy);
+
   /*
    * Update target policy
    */
+   tensor_scalar_mul(d.target_policy, d.tau); // (temporarily) multiply current parameters by tau
    tensor_scalar_mul(d.current_policy, 1 - d.tau); // (temporarily) multiply current parameters by 1-tau
    tensor_elementwise_add(d.target_policy, d.current_policy, d.target_policy); // Add these parameters to the target policy
    tensor_scalar_mul(d.current_policy, 1/(1 - d.tau)); // undo the 1-tau multiplication
-
-  //printf("Critic cost is %f!\n", critic_cost / d.minibatch_size);
 }
 
 void ddpg_append_transition(DDPG *d, Tensor state, Tensor action, Tensor next_state, float reward, int terminal){
+  size_t insert_point;
   if(d->n < d->num_timesteps-1){
-    tensor_copy(state, d->replay_buffer[d->n].state);
-    tensor_copy(action, d->replay_buffer[d->n].action);
-    tensor_copy(next_state, d->replay_buffer[d->n].next_state);
-    d->replay_buffer[d->n].reward = reward;
-    d->replay_buffer[d->n].terminal = terminal;
+    insert_point = d->n;
     d->n++;
   }else
-    SK_ERROR("TODO: Handle this case.\n");
+    insert_point = rand() % d->num_timesteps;
+
+  tensor_copy(state, d->replay_buffer[insert_point].state);
+  tensor_copy(action, d->replay_buffer[insert_point].action);
+  tensor_copy(next_state, d->replay_buffer[insert_point].next_state);
+
+  d->replay_buffer[insert_point].reward = reward;
+  d->replay_buffer[insert_point].terminal = terminal;
 }
 
 DDPG create_ddpg(Network *policy, size_t action_space, size_t state_space, size_t num_threads, size_t num_timesteps){
@@ -149,14 +155,16 @@ DDPG create_ddpg(Network *policy, size_t action_space, size_t state_space, size_
   }
   
   d.n = 0;
-  d.minibatch_size = 4;
+  d.minibatch_size = 64;
   d.num_timesteps = num_timesteps;
 
   d.discount = 0.99;
-  d.tau      = 0.95;
+  d.tau      = 1 - 1e-3;
   d.lr       = 1e-4;
 
   d.optimizer = create_optimizer(d.policy->params, d.policy->param_grad, SK_SGD);
+
+  d.optimizer.lr = d.lr;
 
   return  d;
 }
