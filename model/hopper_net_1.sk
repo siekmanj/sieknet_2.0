@@ -1,0 +1,44 @@
+[network]
+name: hopper_actor_critic
+input_dimension: 11
+input: state
+
+[identity layer]
+name: state
+
+[fully_connected layer]
+name: actor_hidden_1
+input: state
+size: 16
+logistic: relu
+
+[fully_connected layer]
+name: actor_hidden_2
+input: actor_hidden_1
+size: 16
+logistic: relu
+
+[fully_connected layer]
+name: actor
+input: actor_hidden_2
+logistic: tanh
+size: 3
+
+[fully_connected layer]
+name: critic_hidden_1
+input: actor, state
+logistic: relu
+size: 16
+
+[fully_connected layer]
+name: critic_hidden_2
+input: critic_hidden_1
+logistic: relu
+size: 16
+
+[fully_connected layer]
+name: critic
+input: critic_hidden_2
+logistic: linear
+size: 1
+

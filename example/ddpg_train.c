@@ -23,14 +23,15 @@ int main(int argc, char **argv){
   size_t num_threads       = 1;
   size_t num_iterations    = 100;
   size_t random_seed       = time(NULL);
-  size_t timesteps         = 1e7;
-  size_t minibatch_size    = 128;
-  size_t rollouts_per_iter = 256;
+  size_t timesteps         = 1e6;
+  size_t minibatch_size    = 256;
+  size_t samples_per_iter  = 1e4;
   size_t max_traj_len      = 400;
+  size_t steps             = 0;
 
   float tau = 1e-3;
   float gamma = 0.99;
-  float step_size = 1e-4;
+  float step_size = 5e-5;
 
   setbuf(stdout, NULL);
   setlocale(LC_ALL,"");
@@ -47,6 +48,8 @@ int main(int argc, char **argv){
       {"threads",         required_argument, 0,  0},
       {"seed",            required_argument, 0,  0},
       {"gamma",           required_argument, 0,  0},
+      {"tau",             required_argument, 0,  0},
+      {"lr",              required_argument, 0,  0},
       {"timesteps",       required_argument, 0,  0},
       {"traj_len",        required_argument, 0,  0},
       {0,                 0,                 0,  0},
@@ -153,7 +156,9 @@ int main(int argc, char **argv){
      * Gather samples for this iteration.
      */
     tensor_copy(algo.current_policy, n.params);
-    for(int traj = 0; traj < rollouts_per_iter; traj++){
+    size_t samples_gathered = 0;
+    //for(int traj = 0; traj < rollouts_per_iter; traj++){
+    while(samples_gathered < samples_per_iter){
       env.reset(env);
       env.seed(env);
       n.t = 0;
@@ -183,8 +188,11 @@ int main(int argc, char **argv){
          */
         ddpg_append_transition(&algo, state_t, action, next_state, r, *env.done);
 
+        samples_gathered++;
+
       } while(!*env.done && n.t < max_traj_len);
     }
+    steps += samples_gathered;
 
     ddpg_update_policy(algo);
 
@@ -216,7 +224,7 @@ int main(int argc, char **argv){
 
     float batch_avg = avg_return / ((iter % reset_every) + 1);
     double elapsed = (clock_us() - start)/1e6;
-    printf("Iteration %lu took %3.2fs | avg return over last %lu iterations %f\t\r", iter+1, elapsed, (iter % reset_every) + 1, batch_avg);
+    printf("Iteration %lu took %3.2fs | avg return over last %lu iterations %f | timesteps %'9lu\t\r", iter+1, elapsed, (iter % reset_every) + 1, batch_avg, steps);
     iter++;
   }
 
