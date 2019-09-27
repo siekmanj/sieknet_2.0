@@ -1,10 +1,17 @@
 #include <stdio.h>
 #include <locale.h>
+#include <time.h>
 
 #include <sieknet.h>
 #include <tensor.h>
 
 const char* test= "model/test.sk";
+
+static size_t clock_us(){
+  struct timespec start;
+  clock_gettime(CLOCK_REALTIME, &start);
+  return start.tv_sec * 1e6 + start.tv_nsec / 1e3;
+}
 
 int main(){
   srand(1271998);
@@ -267,6 +274,40 @@ int main(){
     tensor_dealloc(b);
     tensor_dealloc(c);
   }
+  {
+    printf("%-50s", "SPEED TEST: ");
+    Tensor a = create_tensor(SIEKNET_CPU, 5000);
+    Tensor b = create_tensor(SIEKNET_CPU, 5000);
+    Tensor c = create_tensor(SIEKNET_CPU, 5000);
+    Tensor d = create_tensor(SIEKNET_CPU, 5000);
+    tensor_fill_random(a, 0, 10);
+    tensor_copy(a, c);
+
+    size_t start = clock_us();
+    float *a_raw = tensor_raw(a);
+    float *b_raw = tensor_raw(b);
+    for(int i = 0; i < a.size; i++){
+      a_raw[i] = a_raw[i] > 0 ? a_raw[i] : 0;
+      b_raw[i] = a_raw[i] > 0 ? 1 : 0;
+    }
+    float raw_time = (float)(clock_us() - start)/1e6;
+
+    start = clock_us();
+    tensor_relu_precompute(c, d);
+    float precomp_time = (float)(clock_us() - start)/1e6;
+    float *c_raw = tensor_raw(c);
+    float *d_raw = tensor_raw(d);
+    for(int i = 0; i < a.size; i++){
+      if(a_raw[i] != c_raw[i]) printf("NO MATCH\n");
+      if(b_raw[i] != d_raw[i]) printf("NOO MATCH\n");
+    }
+    printf(" %f faster\n", precomp_time/raw_time);
+    tensor_dealloc(a);
+    tensor_dealloc(b);
+  }
+
+
+  
 
   return 0;
 }

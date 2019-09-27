@@ -1,0 +1,21 @@
+[network]
+name: humanoid_actor_critic
+input_dimension: 45
+input: actor_hidden_1
+
+[fully_connected layer]
+name: actor_hidden_1
+size: 16
+logistic: tanh
+
+[fully_connected layer]
+name: actor_hidden_2
+input: actor_hidden_1
+size: 16
+logistic: tanh
+
+[fully_connected layer]
+name: action
+input: actor_hidden_2
+logistic: tanh
+size: 17

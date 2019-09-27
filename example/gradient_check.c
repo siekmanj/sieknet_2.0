@@ -39,8 +39,34 @@ int main(int argc, char **argv){
   printf("Model: '%s'\n", n.name);
   for(int i = 0; i < n.depth; i++){
     printf("\tExecution rank %d: '%s'\n", n.layers[i]->rank, n.layers[i]->name);
-    printf("\t\tParam offset: %lu\n", n.layers[i]->param_idx);
-    printf("\t\tParams:       %lu\n", n.layers[i]->num_params);
+    printf("\t\tOutput dim:       %lu\n", n.layers[i]->size);
+
+    printf("\t\tInput layers:     ");
+    for(int j = 0; j < n.layers[i]->num_input_layers; j++){
+      if(n.layers[i]->rank > n.layers[i]->input_layers[j]->rank){
+        printf("'%s'", n.layers[i]->input_layers[j]->name);
+        if(j < n.layers[i]->num_input_layers-1) printf(", ");
+      }
+      if(j == n.layers[i]->num_input_layers-1) printf("\n");
+    }
+
+    size_t num_recurrent_ins = 0;
+    for(int j = 0; j < n.layers[i]->num_input_layers; j++)
+      if(n.layers[i]->rank <= n.layers[i]->input_layers[j]->rank)
+        num_recurrent_ins++;
+
+    if(num_recurrent_ins){
+      printf("\t\tRecurrent inputs: ");
+      for(int j = 0; j < n.layers[i]->num_input_layers; j++){
+        if(n.layers[i]->rank <= n.layers[i]->input_layers[j]->rank){
+          printf("'%s'", n.layers[i]->input_layers[j]->name);
+          if(j < n.layers[i]->num_input_layers-1) printf(", ");
+        }
+        if(j == n.layers[i]->num_input_layers-1) printf("\n");
+      }
+    }
+    printf("\t\tParam offset:     %lu\n", n.layers[i]->param_idx);
+    printf("\t\tParams:           %lu\n", n.layers[i]->num_params);
   }
 	Tensor x = create_tensor(SIEKNET_CPU, t, n.input_dimension);
 	Tensor y = create_tensor(SIEKNET_CPU, t, n.layers[n.depth-1]->output.dims[1]);
@@ -148,7 +174,6 @@ int main(int argc, char **argv){
 	else
 		printf("FAILED (norm %12.11f)\n", norm);
 
-   
   sk_dealloc(&n);
   tensor_dealloc(x);
   tensor_dealloc(y);

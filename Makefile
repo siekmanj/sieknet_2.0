@@ -2,7 +2,7 @@ CC=gcc
 
 SRC = src/*.c src/*/*.c
 INC = -I src -I src/layers -I src/math -I src/parser -I src/env -I src/algo
-LIB = -lm
+LIB = -lm -fopenmp
 
 CGYM_ROOT = $(HOME)/cgym
 CGYM_INC = -I$(CGYM_ROOT) -I$(CGYM_ROOT)/include -L$(CGYM_ROOT)
@@ -19,8 +19,8 @@ gradient_check:
 mnist:
 	$(CC) -Wall example/mnist.c $(SRC) $(INC) $(LIB) -o bin/mnist
 
-model_based:
-	$(CC) -Wall example/model_based.c $(SRC) $(INC) $(CGYM_INC) $(LIB) $(CGYM_LIB) -o bin/model_based
+ddpg:
+	$(CC) -Wall example/ddpg_train.c $(SRC) $(INC) $(CGYM_INC) $(LIB) $(CGYM_LIB) -o bin/ddpg
 
 ars:
 	$(CC) -Wall example/random_search.c $(SRC) $(INC) $(CGYM_INC) $(LIB) $(CGYM_LIB) -fopenmp -DSIEKNET_USE_OMP -o bin/ars

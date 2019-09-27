@@ -113,7 +113,7 @@ void sk_softmax_layer_dealloc(Layer *l){
 void sk_softmax_layer_wipe(Layer *l){};
 
 /*
- * Parses the attributes of a fully-connected layer from
+ * Parses the attributes of a softmax layer from
  * an excerpt of a config file.
  */
 void sk_softmax_layer_parse(Layer *l, char *src){
@@ -130,10 +130,6 @@ void sk_softmax_layer_parse(Layer *l, char *src){
   l->num_input_layers = num_names;
   l->name = name;
 }
-
-/*
- * Allocates the memory for a fully-connected layer.
- */
 void sk_softmax_layer_count_params(Layer *l){
   l->num_params = 0;
   l->num_consts = 0;

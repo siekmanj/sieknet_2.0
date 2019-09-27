@@ -5,6 +5,8 @@
 
 #include <tensor.h>
 
+#include <omp.h>
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -96,6 +98,23 @@ float tensor_at_idx(Tensor t, size_t *arr, size_t len){
   return -1;
 }
 
+static void tensor_2d_visit_unary(Tensor t, float (*unary_op)(float)){
+  size_t dim1 = t.dims[t.n-1];
+  size_t str1 = t.strides[t.n-1];
+
+  size_t dim2 = t.n > 1 ? t.dims[t.n-2] : 1;
+  size_t str2 = t.n > 1 ? t.strides[t.n-2] : 0;
+  
+  float *addr = tensor_raw(t);
+
+  for(int i = 0; i < dim2; i++){
+    for(int j = 0; j < dim1; j++){
+      int idx = i*str2 + j * str1;
+      addr[idx] = unary_op(addr[idx]);
+    }
+  }
+}
+
 /*
  * Returns the cosine similarity of two tensors.
  * Reductions are cheaper on the CPU probably.
@@ -182,6 +201,8 @@ Tensor tensor_clone(TENSOR_DEVICE device, Tensor src){
   else
     SK_ERROR("Not implemented.");
 
+  tensor_copy(src, ret);
+
   return ret;
 }
 
@@ -194,7 +215,7 @@ void tensor_copy(Tensor src, Tensor dest){
     SK_ERROR("Tensors must be on the same device.");
 
   if(src.n != dest.n)
-    SK_ERROR("Tensors must have same number of dimensions.");
+    SK_ERROR("Tensors must have same number of dimensions (%lu vs %lu)", src.n, dest.n);
 
   for(int i = 0; i < src.n; i++)
     if(src.dims[i] != dest.dims[i])
@@ -333,6 +354,9 @@ void tensor_tanh_precompute(Tensor t, Tensor d){
  * Performs the relu nonlinearity on a tensor. Also
  * computes the intermediate gradient (derivative of relu)
  */
+static float relu_unary(float x){
+  return x > 0 ? x : 0;
+}
 void tensor_relu_precompute(Tensor t, Tensor d){
   if(d.data != NULL && t.n != d.n)
     SK_ERROR("If derivative tensor is supplied, dimensions must match. T dims: %lu, d dims: %lu", t.n, d.n);
@@ -342,6 +366,9 @@ void tensor_relu_precompute(Tensor t, Tensor d){
       SK_ERROR("Tensor dimensions do not match on dimension %d: %lu vs %lu\n", i, t.dims[i], d.dims[i]);
 
   if(t.device == SIEKNET_CPU){
+#if 0
+    tensor_2d_visit_unary(t, relu_unary);
+#else
     size_t pos[t.n];
     memset(pos, '\0', sizeof(size_t)*t.n);
 
@@ -359,6 +386,7 @@ void tensor_relu_precompute(Tensor t, Tensor d){
         }else break;
       }
     }
+#endif
   }else
     SK_ERROR("Not implemented.");
 }
@@ -803,11 +831,13 @@ void tensor_mmult(const Tensor a, const Tensor b, Tensor c){
 
   for(int i = 0; i < left_dim_a; i++){
     for(int j = 0; j < right_dim_b; j++){
+      float sum = 0;
       for(int k = 0; k < left_dim_b; k++){
         float a_ik = raw_a[i * left_stride_a  + k * right_stride_a];
         float b_jk = raw_b[j * right_stride_b + k * left_stride_b];
-        raw_c[i * left_stride_c + j * right_stride_c] += a_ik * b_jk;
+        sum += a_ik * b_jk;
       }
+      raw_c[i * left_stride_c + j * right_stride_c] = sum;
     }
   }
 }
