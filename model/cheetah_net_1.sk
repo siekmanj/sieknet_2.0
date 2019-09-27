@@ -1,6 +1,6 @@
 [network]
-name: hopper_actor_critic
-input_dimension: 11
+name: cheetah_actor_critic
+input_dimension: 17
 input: state
 
 [identity layer]
@@ -9,36 +9,37 @@ name: state
 [fully_connected layer]
 name: actor_hidden_1
 input: state
-size: 128
+size: 16
 logistic: relu
 
 [fully_connected layer]
 name: actor_hidden_2
 input: actor_hidden_1
-size: 128
+size: 16
 logistic: relu
 
 [fully_connected layer]
 name: actor
 input: actor_hidden_2
 logistic: tanh
-size: 3
+size: 6
 
 [fully_connected layer]
 name: critic_hidden_1
 input: actor, state
 logistic: relu
-size: 128
+size: 16
 
 [fully_connected layer]
 name: critic_hidden_2
 input: critic_hidden_1
 logistic: relu
-size: 128
+size: 16
 
 [fully_connected layer]
 name: critic
 input: critic_hidden_2
 logistic: linear
 size: 1
+
 

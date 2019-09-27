@@ -1,9 +1,9 @@
 #include <ddpg.h>
 #include <math.h>
 
-void ddpg_update_policy(DDPG d){
+float ddpg_update_policy(DDPG d){
   if(d.n < d.minibatch_size)
-    return;
+    return 0.0f;
 
   /*
    * Sample from buffer
@@ -73,7 +73,7 @@ void ddpg_update_policy(DDPG d){
   /*
    * Update critic parameters.
    */
-  d.optimizer.lr = d.lr;
+  d.optimizer.lr = d.critic_lr;
   d.optimizer.step(d.optimizer);
 
   /*
@@ -93,24 +93,31 @@ void ddpg_update_policy(DDPG d){
   
   tensor_fill(critic->gradient, -1.0f); // Gradient ascent on critic
   sk_backward(d.policy);
+  tensor_scalar_mul(d.policy->param_grad, 1.0f / d.minibatch_size); // Divide by N for mean
 
-  for(int i = 0; i < d.policy->depth; i++) // Unfreeze all layers
-    d.policy->layers[i]->frozen = 0;
-
+  //printf("\nparam grad at actor: %20.19f\n", tensor_at(d.policy->param_grad, actor->param_idx + 64));
+  //printf("param BEFORE update: %20.19f\n", tensor_at(d.policy->params, actor->param_idx + 64));
   /*
    * Update actor parameters
    */
+  d.optimizer.lr = d.actor_lr;
   d.optimizer.step(d.optimizer);
+  //printf("param AFTER update:  %20.19f\n", tensor_at(d.policy->params, actor->param_idx + 64));
+
+  for(int i = 0; i < d.policy->depth; i++) // Unfreeze all layers
+    d.policy->layers[i]->frozen = 0;
 
   tensor_copy(d.policy->params, d.current_policy);
 
   /*
    * Update target policy
    */
-   tensor_scalar_mul(d.target_policy, d.tau); // (temporarily) multiply current parameters by tau
-   tensor_scalar_mul(d.current_policy, 1 - d.tau); // (temporarily) multiply current parameters by 1-tau
-   tensor_elementwise_add(d.target_policy, d.current_policy, d.target_policy); // Add these parameters to the target policy
-   tensor_scalar_mul(d.current_policy, 1/(1 - d.tau)); // undo the 1-tau multiplication
+   tensor_scalar_mul(d.target_policy, 1 - d.tau); // multiply target parameters by 1-tau (value close to 1)
+   tensor_scalar_mul(d.current_policy, d.tau); // (temporarily) multiply current parameters by tau (value close to 0)
+   tensor_elementwise_add(d.target_policy, d.current_policy, d.target_policy); // Add current parameters to the target policy
+   tensor_scalar_mul(d.current_policy, 1/d.tau); // undo the 1-tau multiplication
+
+   return critic_cost / d.minibatch_size;
 }
 
 void ddpg_append_transition(DDPG *d, Tensor state, Tensor action, Tensor next_state, float reward, int terminal){
@@ -159,12 +166,11 @@ DDPG create_ddpg(Network *policy, size_t action_space, size_t state_space, size_
   d.num_timesteps = num_timesteps;
 
   d.discount = 0.99;
-  d.tau      = 1 - 1e-3;
-  d.lr       = 1e-4;
+  d.tau      = 1e-3;
+  d.actor_lr  = 1e-4;
+  d.critic_lr = 1e-3;
 
   d.optimizer = create_optimizer(d.policy->params, d.policy->param_grad, SK_SGD);
-
-  d.optimizer.lr = d.lr;
 
   return  d;
 }

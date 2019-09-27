@@ -24,7 +24,8 @@ typedef struct ddpg_{
 
   float discount;
   float tau;
-  float lr;
+  float actor_lr;
+  float critic_lr;
 
   size_t minibatch_size;
   size_t num_timesteps;
@@ -39,4 +40,4 @@ typedef struct ddpg_{
 DDPG create_ddpg(Network *, size_t, size_t, size_t, size_t);
 
 void ddpg_append_transition(DDPG *, Tensor, Tensor, Tensor, float, int);
-void ddpg_update_policy(DDPG);
+float ddpg_update_policy(DDPG);
