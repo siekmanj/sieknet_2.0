@@ -9,14 +9,14 @@ name: state
 [fully_connected layer]
 name: actor_hidden_1
 input: state
-size: 400
-logistic: tanh
+size: 200
+logistic: relu
 
 [fully_connected layer]
 name: actor_hidden_2
 input: actor_hidden_1
-size: 300
-logistic: tanh
+size: 200
+logistic: relu
 
 [fully_connected layer]
 name: actor
@@ -27,14 +27,14 @@ size: 3
 [fully_connected layer]
 name: critic_hidden_1
 input: actor, state
-logistic: tanh
-size: 400
+logistic: relu
+size: 200
 
 [fully_connected layer]
 name: critic_hidden_2
 input: critic_hidden_1
-logistic: tanh
-size: 300
+logistic: relu
+size: 200
 
 [fully_connected layer]
 name: critic

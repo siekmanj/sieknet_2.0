@@ -5,6 +5,8 @@
 #include <tensor.h>
 #include <parser.h>
 
+#include <omp.h>
+
 typedef struct fc_data_{
   Tensor bias;
   Tensor *weights;
@@ -82,13 +84,23 @@ void sk_fc_layer_backward(Layer *l, size_t t){
       
     }else continue;
 
-    /* Compute weight gradients */
-    if(!l->frozen)
-      tensor_mmult(x, g, dw); // dW = x * g
+    omp_set_num_threads(2);
+#pragma omp parallel sections
+    {
+      #pragma omp section
+      {
+        /* Compute weight gradients */
+        if(!l->frozen)
+          tensor_mmult(x, g, dw); // dW = x * g
+      }
 
-    /* Compute input gradients if needed */
-    if(!l->blocking && dx.data)
-      tensor_mmult(w, g, dx); // dX = g * w
+      #pragma omp section
+      {
+      /* Compute input gradients if needed */
+      if(!l->blocking && dx.data)
+        tensor_mmult(w, g, dx); // dX = g * w
+      }
+    }
   }
 
   /* Compute bias gradients */

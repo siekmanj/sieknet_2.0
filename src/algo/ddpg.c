@@ -63,7 +63,7 @@ float ddpg_update_policy(DDPG d){
   /*
    * Compute the critic loss.
    */
-  size_t start = clock_us();
+  //size_t start = clock_us();
   float critic_cost = sk_cost(d.critic_layer, target_q, SK_QUADRATIC_COST);
 
   /*
@@ -73,8 +73,8 @@ float ddpg_update_policy(DDPG d){
   for(int i = 0; i < d.minibatch_size; i++)
     sk_run_subgraph_backward(d.policy, d.actor_layer->rank+1, d.critic_layer->rank);
 
-  float elapsed = (float)(clock_us() - start)/1e6;
-  printf("elapsed: %f\n", elapsed);
+  //float elapsed = (float)(clock_us() - start)/1e6;
+  //printf("elapsed: %f\n", elapsed);
   /*
    * Update critic parameters.
    */

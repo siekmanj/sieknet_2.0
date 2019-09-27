@@ -257,7 +257,9 @@ int main(int argc, char **argv){
 
     float batch_avg = avg_return / ((iter % reset_every) + 1);
     double elapsed = (clock_us() - start)/1e6;
-    printf("Iteration %4lu took %5.1fs | return %6.2f | last %3lu iters: %6.2f | critic cost: %f | timesteps %'9lu\t\r", iter+1, elapsed, reward, (iter % reset_every) + 1, batch_avg, critic_cost, steps);
+
+    float efficiency = samples_gathered / elapsed;
+    printf("Iteration %4lu took %5.1fs | r %6.2f | last %3lu: %6.2f | cost: %f | %4.1f fps | timesteps %'9lu\t\r", iter+1, elapsed, reward, (iter % reset_every) + 1, batch_avg, critic_cost, efficiency, steps);
     printf("\n");
     iter++;
   }

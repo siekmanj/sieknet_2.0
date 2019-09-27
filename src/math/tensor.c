@@ -5,6 +5,8 @@
 
 #include <tensor.h>
 
+#include <omp.h>
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -829,11 +831,13 @@ void tensor_mmult(const Tensor a, const Tensor b, Tensor c){
 
   for(int i = 0; i < left_dim_a; i++){
     for(int j = 0; j < right_dim_b; j++){
+      float sum = 0;
       for(int k = 0; k < left_dim_b; k++){
         float a_ik = raw_a[i * left_stride_a  + k * right_stride_a];
         float b_jk = raw_b[j * right_stride_b + k * left_stride_b];
-        raw_c[i * left_stride_c + j * right_stride_c] += a_ik * b_jk;
+        sum += a_ik * b_jk;
       }
+      raw_c[i * left_stride_c + j * right_stride_c] = sum;
     }
   }
 }
