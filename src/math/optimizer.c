@@ -1,8 +1,8 @@
 #include <optimizer.h>
 
 void sgd_step(Optimizer o){
-  tensor_scalar_mul(o.gradient, -1 * o.lr);
-  tensor_elementwise_add(o.params, o.gradient, o.params);
+  tensor_scalar_mul(o.gradient, o.lr);
+  tensor_elementwise_sub(o.params, o.gradient, o.params);
   tensor_fill(o.gradient, 0.0f);
 }
 

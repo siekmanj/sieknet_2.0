@@ -24,15 +24,16 @@ int main(int argc, char **argv){
   size_t num_iterations    = 100;
   size_t random_seed       = time(NULL);
   size_t timesteps         = 1e6;
-  size_t minibatch_size    = 64;
+  size_t minibatch_size    = 256;
   size_t max_traj_len      = 400;
-  size_t samples_per_iter  = max_traj_len;
   size_t steps             = 0;
+  size_t eval_frequency    = 1e3;
 
-  float tau              = 1e-3;
+  float tau              = 0.005;
   float gamma            = 0.99;
   float action_std       = 0.2;
-  float alpha            = 0.1;
+  float alpha            = 1.0f;
+
   float actor_step_size  = 1e-4;
   float critic_step_size = 1e-3;
 
@@ -81,8 +82,6 @@ int main(int argc, char **argv){
     }else if(c == -1) break;
   }
 
-  srand(random_seed);
-
   int success = 1;
   if(!model_path){
     printf("Missing arg: --model [.sk file]\n");
@@ -94,21 +93,6 @@ int main(int argc, char **argv){
   }
   if(!success)
     exit(1);
-
-  int load_weights = 0;
-  if(weight_path){
-    FILE *fp = fopen(weight_path, "rb");
-    if(!fp)
-      load_weights = 0;
-    else{
-      load_weights = 1;
-      fclose(fp);
-    }
-  }
-
-  Network n = {0};
-  if(!load_weights)
-    n = sk_create(model_path);
 
   Environment env;
   if(!environment_name)
@@ -125,6 +109,24 @@ int main(int argc, char **argv){
     env = create_walker2d_env();
   else
     SK_ERROR("Invalid env '%s'", environment_name);
+
+  srand(random_seed);
+
+  int load_weights = 0;
+  if(weight_path){
+    FILE *fp = fopen(weight_path, "rb");
+    if(!fp)
+      load_weights = 0;
+    else{
+      load_weights = 1;
+      fclose(fp);
+    }
+  }
+
+  Network n = {0};
+  if(!load_weights)
+    n = sk_create(model_path);
+   
 
   printf("Creating algo!\n");
   DDPG algo = create_ddpg(&n, env.action_space, env.observation_space, 1, timesteps);
@@ -173,15 +175,15 @@ int main(int argc, char **argv){
     if(!(iter % reset_every)){
       avg_return = 0;
       printf("\n");
-      //tensor_copy(algo.current_policy, algo.target_policy);
     }
+
     /*
      * Gather samples for this iteration.
      */
-    tensor_copy(algo.current_policy, n.params);
+    //tensor_copy(algo.current_policy, n.params);
     size_t samples_gathered = 0;
     float critic_cost = 0;
-    while(samples_gathered < samples_per_iter){
+    //while(samples_gathered < samples_per_iter){
       env.reset(env);
       env.seed(env);
       n.t = 0;
@@ -216,10 +218,12 @@ int main(int argc, char **argv){
 
         critic_cost += ddpg_update_policy(algo);
 
+        printf("Did %5lu timesteps in %3.2fs\r", samples_gathered, (clock_us() - start)/1e6);
+
         samples_gathered++;
 
       } while(!*env.done && n.t < max_traj_len);
-    }
+    //}
     steps += samples_gathered;
     critic_cost /= samples_gathered;
 

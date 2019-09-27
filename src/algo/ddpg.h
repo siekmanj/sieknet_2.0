@@ -16,9 +16,11 @@ typedef struct ddpg_{
   Transition *replay_buffer;
   Network *policy;
 
-  Tensor policy_gradient;
-  Tensor target_policy;
-  Tensor current_policy;
+  Tensor target_policy, current_policy;
+  Tensor actor_params, critic_params;
+  Tensor actor_param_grad, critic_param_grad;
+
+  Layer *critic_layer, *actor_layer, *state_layer;
 
   Tensor _q_buffer;
 
@@ -34,7 +36,7 @@ typedef struct ddpg_{
   void (*sample)(struct ddpg_);
   void (*update_policy)(struct ddpg_);
 
-  Optimizer optimizer;
+  Optimizer critic_optimizer, actor_optimizer;
 } DDPG;
 
 DDPG create_ddpg(Network *, size_t, size_t, size_t, size_t);
