@@ -829,15 +829,26 @@ void tensor_mmult(const Tensor a, const Tensor b, Tensor c){
   float *raw_b = tensor_raw(b);
   float *raw_c = tensor_raw(c);
 
-  for(int i = 0; i < left_dim_a; i++){
-    for(int j = 0; j < right_dim_b; j++){
-      float sum = 0;
-      for(int k = 0; k < left_dim_b; k++){
-        float a_ik = raw_a[i * left_stride_a  + k * right_stride_a];
-        float b_jk = raw_b[j * right_stride_b + k * left_stride_b];
-        sum += a_ik * b_jk;
+#ifdef _OPENMP
+  if(b.size > 550)
+    omp_set_num_threads(2);
+  else
+    omp_set_num_threads(1);
+#pragma omp parallel for
+#endif
+  for(int j = 0; j < right_dim_b; j++){
+    int b_row = j * right_stride_b;
+    int c_row = j * right_stride_c;
+
+    for(int k = 0; k < left_dim_b; k++){ //JKI 1.8//6.6
+      int b_col = k * left_stride_b;
+      int a_row = k * right_stride_a;
+      float b_jk = raw_b[b_row + b_col];
+
+      for(int i = 0; i < left_dim_a; i++){
+        float a_ik = raw_a[i * left_stride_a + a_row];
+        raw_c[i * left_stride_c + c_row] += a_ik * b_jk;
       }
-      raw_c[i * left_stride_c + j * right_stride_c] = sum;
     }
   }
 }

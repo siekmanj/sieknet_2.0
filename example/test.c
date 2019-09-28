@@ -274,6 +274,45 @@ int main(){
     tensor_dealloc(b);
     tensor_dealloc(c);
   }
+
+
+  {
+    printf("%-50s", "MMULT: ");
+    Tensor a = create_tensor(SIEKNET_CPU, 4, 5);
+    Tensor b = create_tensor(SIEKNET_CPU, 5, 6);
+    Tensor c = create_tensor(SIEKNET_CPU, 4, 6);
+    tensor_fill_random(a, 0, 1);
+    tensor_fill_random(b, 0, 1);
+    float *a_raw = tensor_raw(a);
+    float *b_raw = tensor_raw(b);
+    float *c_raw = tensor_raw(c);
+    
+    tensor_mmult(a, b, c);
+
+    int success = 1;
+    for(int i = 0; i < 4; i++){
+      for(int j = 0; j < 6; j++){
+        float sum = 0;
+        for(int k = 0; k < 5; k++){
+          float a_ik = a_raw[tensor_get_offset(a, i, k)];
+          float b_jk = b_raw[tensor_get_offset(b, k, j)];
+          sum += a_ik * b_jk;
+        }
+        float c_ij = c_raw[tensor_get_offset(c, i, j)];
+        if(c_ij != sum){
+          printf("Expected %f but got %f\n", sum, c_ij);
+          success = 0;
+        }
+      }
+    }
+    if(success)
+      printf("PASSED\n");
+    else
+      printf("FAILED\n");
+    tensor_dealloc(a);
+    tensor_dealloc(b);
+    tensor_dealloc(c);
+  }
   {
     printf("%-50s", "SPEED TEST: ");
     Tensor a = create_tensor(SIEKNET_CPU, 5000);
