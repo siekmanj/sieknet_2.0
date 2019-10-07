@@ -60,9 +60,17 @@ void sk_fc_layer_forward(Layer *l, size_t t){
 void sk_fc_layer_backward(Layer *l, size_t t){
   FC_layer_data *d = (FC_layer_data*)l->data;
 
-  Tensor o  = get_subtensor(l->gradient, t);
-  Tensor dy = get_subtensor(d->activation_grad, t);
-  Tensor g  = get_subtensor(d->intermediate_grad, t);
+  Tensor o, dy, g;
+
+  if(l->output_recurs){
+    o  = get_subtensor(l->gradient, t);
+    dy = get_subtensor(d->activation_grad, t);
+    g  = get_subtensor(d->intermediate_grad, t);
+  }else{
+    o  = l->gradient;
+    dy = d->activation_grad;
+    g  = d->intermediate_grad;
+  }
   tensor_elementwise_mul(o, dy, g); 
 
   for(int i = 0; i < l->num_input_layers; i++){
@@ -74,40 +82,73 @@ void sk_fc_layer_backward(Layer *l, size_t t){
     Tensor x  = {0};
     Tensor dx = {0};
 
-    int target_t = in->rank >= l->rank ? t - 1 : t;
+    if(l->output_recurs){
+      int target_t = in->rank >= l->rank ? t - 1 : t;
 
-    if(target_t >= 0){
-      x = get_subtensor(in->output, target_t);
+      if(target_t >= 0){
+        x = get_subtensor(in->output, target_t);
 
-      if(in->gradient.data)
-        dx = get_subtensor(in->gradient, target_t);
-      
-    }else continue;
+        if(in->gradient.data)
+          dx = get_subtensor(in->gradient, target_t);
+        
+      }else continue;
+    }else{
+      x = in->output;
+      dx = in->gradient;
+    }
 
+#ifdef USE_OMP
     omp_set_num_threads(2);
 #pragma omp parallel sections
     {
       #pragma omp section
+#endif
       {
+        if(!l->output_recurs){
+          tensor_transpose(x, 0, 1);
+        }
         /* Compute weight gradients */
         if(!l->frozen)
           tensor_mmult(x, g, dw); // dW = x * g
+        if(!l->output_recurs){
+          tensor_transpose(x, 0, 1);
+        }
       }
 
+#ifdef USE_OMP
       #pragma omp section
+#endif
       {
       /* Compute input gradients if needed */
+      if(!l->output_recurs){
+        tensor_transpose(g, 0, 1);
+        tensor_transpose(dx, 0, 1);
+      }
+      //printf("%lu, %lu x %lu, %lu\n", w.dims[0], w.dims[1], g.dims[0], g.dims[1]);
       if(!l->blocking && dx.data)
         tensor_mmult(w, g, dx); // dX = g * w
       }
+      if(!l->output_recurs){
+        tensor_transpose(g, 0, 1);
+        tensor_transpose(dx, 0, 1);
+      }
+#ifdef USE_OMP
     }
+#endif
+
   }
 
   /* Compute bias gradients */
   if(!l->frozen){
     Tensor db = d->bias_grad;
-    tensor_elementwise_add(g, db, db);
+    if(!l->output_recurs){
+      for(int i = 0; i < g.dims[0]; i++)
+        tensor_elementwise_add(get_subtensor(g, i), db, db);
+    }else
+      tensor_elementwise_add(g, db, db);
   }
+  if(!l->output_recurs)
+    l->gradient_ready = 1;
 }
 
 void sk_fc_layer_dealloc(Layer *l){

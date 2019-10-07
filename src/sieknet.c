@@ -266,7 +266,9 @@ double sk_cost(Layer *l, Tensor y, SK_COST_FN cost){
   return -1;
 }
 
+#define CHUNKING
 void sk_run_subgraph_backward(Network *n, int start_rank, int end_rank){
+#ifndef CHUNKING
   if(n->t)
     n->t--;
 
@@ -285,22 +287,38 @@ void sk_run_subgraph_backward(Network *n, int start_rank, int end_rank){
   // Zero gradients of entire graph
   for(int i = 0; i < n->depth; i++)
     tensor_fill(get_subtensor(n->layers[i]->gradient, n->t), 0.0f);
-}
-
-#if 0
-static void sk_backward_pass(Network *n){
-  for(int i = n->depth-1; i >= 0; i--){
-    n->layers[i]->backward(n->layers[i], t);
-    tensor_fill(get_subtensor(n->layers[i]->gradient, t), 0.0f);
+#else
+  for(int i = n->num_chunks-1; i > 0; i--){
+    size_t t = n->t;
+    printf("Doing chunk from layer %lu ('%s') to %lu ('%s')\n", n->chunks[i], n->layers[n->chunks[i]]->name, n->chunks[i-1], n->layers[n->chunks[i-1]]->name);
+    while(t--){
+      int chunk_done = 1;
+      //printf("\tt: %lu\n", t);
+      for(int j = n->chunks[i]; j > n->chunks[i-1]; j--){
+        //printf("\t\t'%s'.backward\n", n->layers[i]->name);
+        n->layers[i]->backward(n->layers[i], t);
+        if(!n->layers[j]->gradient_ready)
+          chunk_done = 0;
+      }
+      if(chunk_done)
+        break;
+    }
+    for(int j = n->chunks[i]; j > n->chunks[i-1]; j--)
+      tensor_fill(get_subtensor(n->layers[i]->gradient), 0.0f);
   }
-}
 #endif
+}
 
 void sk_backward(Network *n){
+#ifndef CHUNKING
   for(int t = n->t-1; t >= 0; t--){
     //sk_backward_pass(n, t);
     sk_run_subgraph_backward(n, 0, n->layers[n->depth-1]->rank);
   }
   n->t = 0;
+#else
+  sk_run_subgraph_backward(n, 0, n->layers[n->depth-1]->rank);
+  n->t = 0;
+#endif
 }
 

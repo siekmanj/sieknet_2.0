@@ -23,9 +23,11 @@ static int ars_comparator(const void *one, const void *two){
 }
 
 static void ars_step(ARS r){
+#if 0
 #ifdef _OPENMP
   omp_set_num_threads(r.num_threads);
   #pragma omp parallel for default(none) shared(r)
+#endif
 #endif
   /* Do rollouts */
   for(int i = 0; i < r.directions; i++){

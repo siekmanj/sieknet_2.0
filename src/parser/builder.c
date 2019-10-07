@@ -117,11 +117,44 @@ void build_network(Network *n){
 
   for(int i = 0; i < n->depth; i++){
     Layer *l = n->layers[i];
+    l->idx = i;
     for(int j = 0; j < l->num_output_layers; j++){
       Layer *out = l->output_layers[j];
       if(out->rank <= l->rank){
+        l->output_recurs = 1;
         n->is_recurrent = 1;
       }
     }
+  }
+
+  int chunks[n->depth+1];
+  int num_chunks = 0;
+
+  int tentative_chunk_boundary = n->depth-1;
+  for(int i = n->depth-1; i >= 0; i--){
+    Layer *l = n->layers[i];
+    for(int j = 0; j < l->num_output_layers; j++){
+      Layer *out = l->output_layers[j];
+      if(out->rank <= l->rank){
+        tentative_chunk_boundary = out->idx;
+      }
+    }
+    if(i == tentative_chunk_boundary){
+      chunks[num_chunks++] = i;
+      tentative_chunk_boundary = i-1;
+    }
+  }
+
+#if 0
+  for(int i = 0; i < num_chunks; i++){
+    printf("Doing chunk %d: %d and %d\n", i, chunks[i]);
+    printf("Chunk between %d '%s'\n", chunks[i], n->layers[chunks[i]]->name);
+  }
+#endif
+
+  n->chunks = malloc(sizeof(size_t) * num_chunks);
+  n->num_chunks = num_chunks;
+  for(int i = num_chunks-1; i >= 0; i--){
+    n->chunks[i] = chunks[num_chunks-i-1];
   }
 }

@@ -31,6 +31,10 @@ typedef struct layer_{
 
   int rank;
   int visited;
+  int idx;
+  int is_recurrent;
+  int gradient_ready;
+  int output_recurs;
 
   Tensor gradient;
   Tensor output;
@@ -75,6 +79,9 @@ typedef struct net_{
   size_t num_consts;
   size_t depth;
   size_t t;
+
+  size_t num_chunks;
+  size_t *chunks;
 
   int is_recurrent;
   int is_seq2seq;

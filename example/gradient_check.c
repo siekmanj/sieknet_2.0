@@ -119,10 +119,12 @@ int main(int argc, char **argv){
 	float *p_grad = tensor_raw(n.param_grad);
 	sk_forward(&n, x);
 	sk_cost(n.layers[n.depth-1], y, cost_fn);
+  size_t start = clock_us();
 	sk_backward(&n);
+  printf("Finished backward pass in %6.5fs\n", 1e-6*(clock_us() - start));
 	sk_wipe(&n);
 
-  size_t start = clock_us();
+  start = clock_us();
 	for(size_t i = 0; i < n.num_params; i++){
     Layer *culprit;
     for(int j = 0; j < n.depth; j++){

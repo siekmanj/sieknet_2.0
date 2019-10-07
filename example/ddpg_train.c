@@ -218,7 +218,7 @@ int main(int argc, char **argv){
 
         critic_cost += ddpg_update_policy(algo);
 
-        printf("Did %5lu timesteps in %3.2fs\r", samples_gathered, (clock_us() - start)/1e6);
+        //printf("Did %5lu timesteps in %3.2fs\r", samples_gathered, (clock_us() - start)/1e6);
 
         samples_gathered++;
 
@@ -250,7 +250,7 @@ int main(int argc, char **argv){
 
      reward += env.step(env, action_buff);
      //if(!(iter % reset_every))
-       env.render(env);
+       //env.render(env);
 
     }while(!*env.done && n.t < max_traj_len);
     avg_return += reward;
@@ -260,7 +260,6 @@ int main(int argc, char **argv){
 
     float efficiency = samples_gathered / elapsed;
     printf("Iteration %4lu took %5.1fs | r %6.2f | last %3lu: %6.2f | cost: %f | %4.1f fps | timesteps %'9lu\t\r", iter+1, elapsed, reward, (iter % reset_every) + 1, batch_avg, critic_cost, efficiency, steps);
-    printf("\n");
     iter++;
   }
 
